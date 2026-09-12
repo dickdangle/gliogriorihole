@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Astral Page Dome</title>
+  <style>
+    :root{--ink:#edf6ff;--muted:#9fb0ca;--glass:rgba(11,17,35,.62);--line:rgba(173,207,255,.22);--aqua:#93f4e9;--violet:#b49cff}
+    *{box-sizing:border-box} html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#03040d;color:var(--ink);font:14px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    body{user-select:none;touch-action:none;background:radial-gradient(circle at 50% 45%,#17224a 0,#090d21 42%,#02030a 100%)}
+    #stars{position:fixed;inset:0;width:100%;height:100%;opacity:.85}
+    #halo{position:fixed;left:50%;top:50%;width:min(92vw,900px);aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle,transparent 43%,rgba(110,157,255,.035) 55%,transparent 71%);border:1px solid rgba(155,200,255,.05);box-shadow:inset 0 0 120px rgba(112,79,255,.06);pointer-events:none}
+    #viewport{position:fixed;inset:0;perspective:900px;cursor:grab;outline:none} #viewport.dragging{cursor:grabbing}
+    #tiles{position:absolute;inset:0;transform-style:preserve-3d}
+    .tile{position:absolute;left:50%;top:50%;width:clamp(126px,15vw,210px);aspect-ratio:.72;border:0;padding:0;border-radius:8px;background:#11162a;overflow:hidden;transform-origin:center;box-shadow:0 18px 50px rgba(0,0,0,.42),0 0 0 1px rgba(217,236,255,.18);will-change:transform,opacity,filter;transition:box-shadow .22s,filter .22s;cursor:pointer}
+    .tile::after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.16),transparent 25% 72%,rgba(122,233,255,.1));pointer-events:none}
+    .tile img{width:100%;height:100%;display:block;object-fit:cover;pointer-events:none}
+    .tile:hover,.tile.focused{box-shadow:0 22px 65px rgba(0,0,0,.56),0 0 0 2px rgba(160,243,233,.8),0 0 35px rgba(116,208,255,.23);filter:saturate(1.08) brightness(1.06)}
+    header{position:fixed;z-index:20;left:clamp(16px,3vw,40px);top:clamp(16px,3vw,34px);pointer-events:none;text-shadow:0 2px 18px #02030a}
+    h1{font:500 clamp(18px,2.2vw,29px)/1.1 Georgia,serif;letter-spacing:.08em;margin:0 0 6px} header p{margin:0;color:var(--muted);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+    .controls{position:fixed;z-index:30;right:clamp(12px,2.5vw,32px);top:clamp(12px,2.5vw,28px);display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    button,.fileLabel{appearance:none;border:1px solid var(--line);border-radius:999px;background:var(--glass);backdrop-filter:blur(15px);color:var(--ink);padding:9px 14px;font:600 12px ui-sans-serif,system-ui;letter-spacing:.04em;cursor:pointer;transition:.2s}
+    button:hover,.fileLabel:hover{border-color:rgba(157,241,231,.65);background:rgba(27,39,72,.75)} #files{display:none}
+    #hint{position:fixed;z-index:20;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);white-space:nowrap;color:#bfd0e6;background:rgba(4,8,20,.56);border:1px solid rgba(190,220,255,.13);border-radius:999px;padding:8px 14px;backdrop-filter:blur(12px);font-size:11px;letter-spacing:.05em;pointer-events:none;transition:opacity 1s}
+    #counter{position:fixed;right:20px;bottom:19px;color:#8da0bb;font-size:11px;letter-spacing:.12em}
+    @media(max-width:620px){header p{display:none}.controls{top:auto;bottom:max(56px,calc(env(safe-area-inset-bottom) + 52px));right:50%;transform:translateX(50%)}#counter{display:none}.tile{width:132px}}
+    @media(prefers-reduced-motion:reduce){.tile{transition:none}}
+  </style>
+</head>
+<body>
+  <canvas id="stars"></canvas><div id="halo"></div>
+  <header><h1>Astral Page Dome</h1><p>Quaternion navigation · no poles, no locks</p></header>
+  <div class="controls"><label class="fileLabel" for="files">Load pages</label><input id="files" type="file" accept="image/*" multiple><button id="memory" type="button">Save memory</button><button id="inside" type="button" aria-pressed="false">Enter sphere</button><button id="reset" type="button">Reset view</button></div>
+  <main id="viewport" tabindex="0" aria-label="Interactive three dimensional page gallery"><div id="tiles"></div></main>
+  <div id="hint">Drag to orbit · scroll to zoom · click a page to focus · Esc to return</div><div id="counter"></div>
+<script>
+/* Put this HTML beside your images, then edit these filenames. Missing files receive artful placeholders. */
+const PAGE_IMAGES = [
+  'page-01.jpg','page-02.jpg','page-03.jpg','page-04.jpg','page-05.jpg','page-06.jpg',
+  'page-07.jpg','page-08.jpg','page-09.jpg','page-10.jpg','page-11.jpg','page-12.jpg',
+  'page-13.jpg','page-14.jpg','page-15.jpg','page-16.jpg','page-17.jpg','page-18.jpg',
+  'page-19.jpg','page-20.jpg'
+];
+const $=s=>document.querySelector(s), viewport=$('#viewport'), stage=$('#tiles'), counter=$('#counter');
+const V={add:(a,b)=>a.map((v,i)=>v+b[i]),scale:(a,s)=>a.map(v=>v*s),dot:(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0),cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],norm:a=>{let n=Math.hypot(...a)||1;return a.map(v=>v/n)}};
+const Q={id:()=>[0,0,0,1],norm:q=>{let n=Math.hypot(...q)||1;return q.map(v=>v/n)},mul:(a,b)=>[a[3]*b[0]+a[0]*b[3]+a[1]*b[2]-a[2]*b[1],a[3]*b[1]-a[0]*b[2]+a[1]*b[3]+a[2]*b[0],a[3]*b[2]+a[0]*b[1]-a[1]*b[0]+a[2]*b[3],a[3]*b[3]-a[0]*b[0]-a[1]*b[1]-a[2]*b[2]],axis:(a,t)=>{a=V.norm(a);let s=Math.sin(t/2);return[a[0]*s,a[1]*s,a[2]*s,Math.cos(t/2)]},rot:(q,v)=>{let u=q.slice(0,3),s=q[3],uv=V.cross(u,v),uuv=V.cross(u,uv);return V.add(v,V.scale(V.add(V.scale(uv,s),uuv),2))},fromTo:(a,b)=>{a=V.norm(a);b=V.norm(b);let d=V.dot(a,b);if(d < -0.9999){let axis=Math.abs(a[0])<.8?V.cross(a,[1,0,0]):V.cross(a,[0,1,0]);return Q.axis(axis,Math.PI)}let c=V.cross(a,b);return Q.norm([c[0],c[1],c[2],1+d])},slerp:(a,b,t)=>{let d=a.reduce((s,v,i)=>s+v*b[i],0);if(d<0){b=b.map(v=>-v);d=-d}if(d>.9995)return Q.norm(a.map((v,i)=>v+(b[i]-v)*t));let th=Math.acos(Math.min(1,d)),sn=Math.sin(th);return a.map((v,i)=>(Math.sin((1-t)*th)*v+Math.sin(t*th)*b[i])/sn)}};
+let orientation=Q.mul(Q.axis([1,0,0],-.13),Q.axis([0,1,0],.15)), zoom=1, targetQ=null,targetZoom=null,focused=-1,drag=false,moved=false,last=[0,0],tiles=[],inside=false;
+function placeholder(i){let hue=(i*37+205)%360, lines=Array.from({length:7},(_,k)=>`<path d='M${26+(k%2)*8} ${74+k*25} Q ${80+k*4} ${60+k*28}, ${174-(k%3)*10} ${76+k*25}'/>`).join('');return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 278'><defs><linearGradient id='g' x2='1' y2='1'><stop stop-color='hsl(${hue} 32% 94%)'/><stop offset='1' stop-color='hsl(${hue+45} 38% 77%)'/></linearGradient></defs><rect width='200' height='278' rx='8' fill='url(#g)'/><circle cx='${45+(i*23)%110}' cy='45' r='19' fill='none' stroke='hsl(${hue} 55% 42%)' stroke-width='2'/><g fill='none' stroke='hsl(${hue+210} 30% 30%)' stroke-width='2' opacity='.72'>${lines}</g><text x='22' y='256' fill='hsl(${hue} 35% 25%)' font-family='serif' font-size='11' letter-spacing='2'>FIELD NOTE ${String(i+1).padStart(2,'0')}</text></svg>`)}`}
+function build(sources){stage.innerHTML='';tiles=[];let n=sources.length;for(let i=0;i<n;i++){let y=1-2*(i+.5)/n,r=Math.sqrt(1-y*y),ga=Math.PI*(3-Math.sqrt(5)),a=i*ga;let dir=[Math.cos(a)*r,y,Math.sin(a)*r];let el=document.createElement('button');el.className='tile';el.type='button';el.setAttribute('aria-label',`Focus page ${i+1}`);let img=new Image();img.alt=`Page ${i+1}`;img.src=sources[i];img.onerror=()=>{img.onerror=null;img.src=placeholder(i)};el.append(img);el.onclick=()=>{if(!moved)focusTile(i)};stage.append(el);tiles.push({el,dir});}counter.textContent=`${n} PAGES`;render()}
+function focusTile(i){focused=i;tiles.forEach((t,j)=>t.el.classList.toggle('focused',i===j));let current=Q.rot(orientation,tiles[i].dir);targetQ=Q.norm(Q.mul(Q.fromTo(current,[0,0,1]),orientation));targetZoom=1.72}
+function reset(){focused=-1;tiles.forEach(t=>t.el.classList.remove('focused'));targetQ=Q.mul(Q.axis([1,0,0],-.13),Q.axis([0,1,0],.15));targetZoom=1}
+function render(){let w=innerWidth,h=innerHeight,base=Math.min(w,h)*(inside?.58:.44)*zoom;for(let i=0;i<tiles.length;i++){let t=tiles[i],raw=Q.rot(orientation,t.dir),p=inside?V.scale(raw,-1):raw,depth=(p[2]+1)/2,spread=base*(inside?(.82+.31*depth):(1.25-.18*depth)),x=p[0]*spread,y=-p[1]*spread*.82,pers=inside?(.72+depth*.88):(.62+depth*.7),z=Math.round(depth*800);t.el.style.transform=`translate(-50%,-50%) translate3d(${x}px,${y}px,0) scale(${pers}) rotate(${p[0]*(inside?5:-5)}deg)`;t.el.style.zIndex=z;t.el.style.opacity=(inside?.14:.24)+depth*(inside?.86:.76);t.el.style.filter=`brightness(${.57+depth*.57}) saturate(${.65+depth*.45})`;t.el.style.pointerEvents=depth<.13?'none':'auto'}}
+function loop(){if(targetQ){orientation=Q.slerp(orientation,targetQ,.09);zoom+=(targetZoom-zoom)*.09;if(Math.abs(zoom-targetZoom)<.002){orientation=targetQ;zoom=targetZoom;targetQ=null;targetZoom=null}}render();requestAnimationFrame(loop)}
+viewport.addEventListener('pointerdown',e=>{if(e.button!==0)return;drag=true;moved=false;last=[e.clientX,e.clientY];targetQ=null;viewport.classList.add('dragging');viewport.setPointerCapture(e.pointerId)});
+viewport.addEventListener('pointermove',e=>{if(!drag)return;let dx=e.clientX-last[0],dy=e.clientY-last[1];if(Math.hypot(dx,dy)>1)moved=true;last=[e.clientX,e.clientY];let axis=V.norm([dy,dx,0]),dq=Q.axis(axis,Math.hypot(dx,dy)*.0052);orientation=Q.norm(Q.mul(dq,orientation))});
+viewport.addEventListener('pointerup',()=>{drag=false;viewport.classList.remove('dragging')});
+viewport.addEventListener('wheel',e=>{e.preventDefault();targetZoom=null;zoom=Math.max(.58,Math.min(2.15,zoom*Math.exp(-e.deltaY*.001)))},{passive:false});
+addEventListener('keydown',e=>{if(e.key==='Escape'||e.key.toLowerCase()==='r')reset();if(['+','='].includes(e.key))zoom=Math.min(2.15,zoom*1.12);if(e.key==='-')zoom=Math.max(.58,zoom/1.12);let axis=e.key==='ArrowLeft'?[0,-1,0]:e.key==='ArrowRight'?[0,1,0]:e.key==='ArrowUp'?[-1,0,0]:e.key==='ArrowDown'?[1,0,0]:null;if(axis){e.preventDefault();targetQ=null;orientation=Q.norm(Q.mul(Q.axis(axis,.1),orientation))}});
+function setInside(value){inside=!!value;let b=$('#inside');b.textContent=inside?'Exit sphere':'Enter sphere';b.setAttribute('aria-pressed',String(inside))}
+function saveMemory(){localStorage.setItem('astral-dome-memory',JSON.stringify({orientation,zoom,inside,focused}));let b=$('#memory');b.textContent='Memory saved';setTimeout(()=>b.textContent='Recall memory',1200)}
+function recallMemory(){try{let m=JSON.parse(localStorage.getItem('astral-dome-memory'));if(!m)return;targetQ=Q.norm(m.orientation);targetZoom=Math.max(.58,Math.min(2.15,m.zoom||1));setInside(m.inside);focused=Number.isInteger(m.focused)?m.focused:-1;tiles.forEach((t,j)=>t.el.classList.toggle('focused',focused===j))}catch{}}
+$('#memory').onclick=()=>localStorage.getItem('astral-dome-memory')?recallMemory():saveMemory();$('#memory').ondblclick=e=>{e.preventDefault();saveMemory()};$('#memory').title='Click to recall; double-click to overwrite';if(localStorage.getItem('astral-dome-memory'))$('#memory').textContent='Recall memory';
+$('#inside').onclick=()=>setInside(!inside);$('#reset').onclick=reset;$('#files').onchange=e=>{let fs=[...e.target.files].filter(f=>f.type.startsWith('image/'));if(fs.length)build(fs.map(URL.createObjectURL));};setTimeout(()=>$('#hint').style.opacity=.28,6500);
+const canvas=$('#stars'),ctx=canvas.getContext('2d');let stars=[];function sizeStars(){let d=Math.min(devicePixelRatio,2);canvas.width=innerWidth*d;canvas.height=innerHeight*d;ctx.setTransform(d,0,0,d,0,0);stars=Array.from({length:Math.min(300,Math.floor(innerWidth*innerHeight/5000))},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.25+.15,a:Math.random()*.65+.18,p:Math.random()*6.28}))}function drawStars(ms){ctx.clearRect(0,0,innerWidth,innerHeight);for(let s of stars){ctx.globalAlpha=s.a*(.7+.3*Math.sin(ms*.0007+s.p));ctx.fillStyle='#dcecff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill()}ctx.globalAlpha=1;requestAnimationFrame(drawStars)}addEventListener('resize',sizeStars);sizeStars();requestAnimationFrame(drawStars);
+build(PAGE_IMAGES);requestAnimationFrame(loop);
+</script>
+</body>
+</html>
