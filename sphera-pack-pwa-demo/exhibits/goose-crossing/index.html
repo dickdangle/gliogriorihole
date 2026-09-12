@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1312">
+  <meta name="description" content="A local-first Goose Crossing adapter for the Sphera Field Station.">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Goose Crossing Local — Sphera Field Station</title>
+</head>
+<body>
+  <header class="topbar">
+    <a href="../../index.html" class="back">← SPHERA FIELD STATION</a>
+    <div class="wordmark"><b>GOOSE CROSSING</b><span>LOCAL ADAPTER / 01</span></div>
+    <div class="save-state"><i></i><span id="save-label">STARTING LOCAL RUNTIME</span></div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div>
+        <p class="kicker">PACK EXTENSION · LOCAL-FIRST · STATEFUL</p>
+        <h1>The same knot.<br><em>The same starting field.</em></h1>
+      </div>
+      <p class="lede">Choose two source notes, tie one explicit relation, and carry it into S³. The relation determines the field’s starting conditions; your actions change condensate; every checkpoint is held in a verified local capsule.</p>
+    </section>
+
+    <section class="contract-bar" aria-label="State contract status">
+      <div><span>PACK PIN</span><b>sphera.engine-state.core · r1</b><small>draft contract · consuming extension</small></div>
+      <div><span>EVENTS</span><b>sphera.event/1</b><small>hash-chained local receipts</small></div>
+      <div><span>SESSION</span><b>sphera.session/1</b><small>exportable · integrity checked</small></div>
+      <div><span>SIMULATION</span><b>biome-state/1</b><small>seeded start · snapshot restored</small></div>
+    </section>
+
+    <section class="workbench">
+      <article class="notes-panel panel">
+        <div class="panel-head"><span>01 / SOURCE</span><h2>Voxel 64 note layers</h2><p>These eight labels come directly from the local Voxel 64 build. Nothing here is pretending to be a person or a story.</p></div>
+        <div id="note-grid" class="note-grid" aria-label="Voxel 64 source notes"></div>
+        <div class="selection">
+          <span>WORKING SET</span>
+          <strong id="selection-label">choose two notes</strong>
+          <button id="tie-button" disabled>TIE RELATION ↗</button>
+        </div>
+      </article>
+
+      <article class="relation-panel panel">
+        <div class="panel-head"><span>02 / RELATION</span><h2>What the knot does</h2><p>The mapping below is a versioned local adapter—not a claim that Voxel 64 itself defines these mechanics.</p></div>
+        <div id="empty-knot" class="empty-knot">A knot appears after two distinct notes are selected.</div>
+        <div id="active-knot" class="active-knot" hidden>
+          <div class="knot-title"><code id="knot-id">K-000</code><h3 id="knot-name"></h3><span id="knot-pair"></span></div>
+          <dl>
+            <div><dt>START SEED</dt><dd id="knot-seed"></dd></div>
+            <div><dt>POINTS</dt><dd id="knot-points"></dd></div>
+            <div><dt>COUPLING</dt><dd id="knot-coupling"></dd></div>
+            <div><dt>S³ SLICE</dt><dd id="knot-axis"></dd></div>
+            <div><dt>CONDENSATE GOAL</dt><dd id="knot-target"></dd></div>
+          </dl>
+          <button id="open-biome">OPEN SEEDED FIELD ↓</button>
+        </div>
+        <ol id="knot-ledger" class="knot-ledger" aria-label="Knot ledger"></ol>
+      </article>
+    </section>
+
+    <section class="biome-panel" id="biome-panel" hidden>
+      <div class="biome-head">
+        <div><p class="kicker">03 / CONSEQUENCE</p><h2>Move the liquid on purpose.</h2></div>
+        <p><b>COOL</b> raises the condensate target. <b>HONK</b> warms the vessels and lowers it. Reach the knot’s target band; the result becomes a receipt and a restorable checkpoint.</p>
+      </div>
+      <div class="trace">
+        <span class="done">1 · KNOT BOUND</span><span class="active" id="action-step">2 · MAKE A CHANGE</span><span id="receipt-step">3 · RETURN RECEIPT</span>
+      </div>
+      <div class="biome-stage">
+        <iframe id="biome-frame" title="Seeded Bink Bonk S³ field" src="about:blank"></iframe>
+        <aside class="instrument">
+          <div class="goal-ring" id="goal-ring"><span>CONDENSATE φ</span><strong id="condensate">—</strong><small id="target-copy">target —</small></div>
+          <div class="action-grid" aria-label="Biome actions">
+            <button data-action="cool">COOL <small>raise φ</small></button>
+            <button data-action="honk">HONK <small>lower φ</small></button>
+            <button data-action="pulse">PULSE <small>move points</small></button>
+            <button data-action="ping">PING <small>measure nearest</small></button>
+          </div>
+          <dl class="metrics">
+            <div><dt>PRESSURE P̄</dt><dd id="pressure">—</dd></div>
+            <div><dt>POINTS</dt><dd id="point-count">—</dd></div>
+            <div><dt>BONKS</dt><dd id="bonks">—</dd></div>
+            <div><dt>CHECKPOINT</dt><dd id="checkpoint">waiting</dd></div>
+          </dl>
+          <button class="fold" id="fold-biome">FOLD FIELD / KEEP STATE</button>
+        </aside>
+      </div>
+    </section>
+
+    <section class="custody">
+      <article class="receipts panel">
+        <div class="panel-head"><span>04 / RECEIPTS</span><h2>Causal journal</h2><p>Actions and state transitions are hashed in order. Continuous telemetry is sampled; full biome state lives in the capsule checkpoint.</p></div>
+        <div id="receipt-list" class="receipt-list"></div>
+      </article>
+      <article class="capsule panel">
+        <div class="panel-head"><span>05 / CUSTODY</span><h2>Local capsule</h2><p>The browser stores this world on this device. Export moves the exact capsule; import verifies it before restoration.</p></div>
+        <div class="capsule-status"><span>INTEGRITY</span><strong id="integrity">pending</strong><code id="capsule-id">—</code></div>
+        <div class="capsule-actions">
+          <button id="export-button">EXPORT JSON</button>
+          <button id="import-button">IMPORT / VERIFY</button>
+          <button id="reset-button" class="danger">NEW LOCAL WORLD</button>
+          <input id="import-file" type="file" accept="application/json,.json" hidden>
+        </div>
+        <label class="seed-field">MASTER SEED<input id="seed-input" maxlength="80" value="goose-crossing-local-01"><button id="seed-button">SET + RESET</button></label>
+        <p class="boundary"><b>Boundary:</b> seeded initialization and checkpoint restoration are implemented. Deterministic continuous-time replay is not claimed.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer><span>SPHERA FIELD STATION</span><span>NO SITES RUNTIME · NO CLOUD STATE</span><a href="../../index.html">RETURN TO ATLAS ↑</a></footer>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="../../runtime/sphera-state.js"></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>

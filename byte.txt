@@ -1,0 +1,36 @@
+# Conversation Transcript
+
+## User
+
+just link the NFT state to an engine NFT (where the NFT has the "rule book" and "players guide"...come on, don't make me build this again. i've built it before.
+
+please produce .md of this conversation called "byte.txt"
+
+## Assistant
+
+Yes. The clean model is:
+
+- `engine NFT`: immutable-ish ruleset identity
+- `state NFT`: revisioned play state / save artifact
+- `state NFT -> engine NFT`: explicit reference
+
+The `engine NFT` holds the conceptual rule layer:
+- ruleset name
+- schema version
+- player guide URI
+- rule book URI
+- engine code / spec hash
+- allowed state schema versions
+
+The `state NFT` holds run-specific provenance:
+- state snapshot hash
+- revision number
+- previous revision hash
+- engine NFT reference
+- content URI for the full save state
+
+That avoids rebuilding the system every time because the engine layer is stable and the state layer just advances by rev.
+
+## User
+
+please produce .md of this conversation called "byte.txt"

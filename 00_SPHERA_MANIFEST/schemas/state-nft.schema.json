@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sphera.local/schemas/state-nft.schema.json",
+  "title": "Sphera State NFT Revision Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record_type", "schema_version", "nft_id", "engine_ref", "revision", "previous_revision", "snapshot", "provenance"],
+  "properties": {
+    "record_type": {"const": "sphera.state-nft"},
+    "schema_version": {"const": "1.0.0"},
+    "nft_id": {"$ref": "engine-nft.schema.json#/$defs/nftId"},
+    "engine_ref": {
+      "allOf": [
+        {"$ref": "engine-nft.schema.json#/$defs/nftId"},
+        {"description": "Explicit identity of the engine NFT governing this state."}
+      ]
+    },
+    "revision": {"type": "integer", "minimum": 1},
+    "previous_revision": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["revision", "record_sha256"],
+          "properties": {
+            "revision": {"type": "integer", "minimum": 1},
+            "record_sha256": {"$ref": "engine-nft.schema.json#/$defs/sha256"}
+          }
+        }
+      ]
+    },
+    "snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["uri", "sha256"],
+      "properties": {
+        "uri": {"type": "string", "format": "uri"},
+        "sha256": {"$ref": "engine-nft.schema.json#/$defs/sha256"}
+      }
+    },
+    "provenance": {"$ref": "engine-nft.schema.json#/$defs/provenance"}
+  }
+}

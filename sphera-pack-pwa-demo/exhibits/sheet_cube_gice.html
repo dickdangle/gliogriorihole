@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sheet Cube Gice</title>
+<style>
+  :root {
+    --bg-top: #071018;
+    --bg-bottom: #02050a;
+    --panel: rgba(7, 16, 27, 0.84);
+    --panel-strong: rgba(10, 20, 34, 0.92);
+    --line: rgba(150, 205, 255, 0.18);
+    --text: #ebf5ff;
+    --muted: #93a8c3;
+    --accent: #8ef5d1;
+    --accent-2: #9fd4ff;
+    --warm: #ffd897;
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+    background:
+      radial-gradient(circle at 18% 16%, rgba(96, 132, 214, 0.20), transparent 26%),
+      radial-gradient(circle at 82% 14%, rgba(62, 219, 174, 0.14), transparent 22%),
+      radial-gradient(circle at 52% 100%, rgba(157, 114, 233, 0.12), transparent 32%),
+      linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+    gap: 18px;
+    min-height: 100vh;
+    padding: 18px;
+  }
+
+  .stack {
+    display: grid;
+    gap: 14px;
+    align-content: start;
+  }
+
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 16px 18px;
+    background: var(--panel);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow);
+  }
+
+  .eyebrow {
+    display: inline-block;
+    padding: 5px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(142, 245, 209, 0.18);
+    background: rgba(142, 245, 209, 0.08);
+    color: var(--accent);
+    font: 11px/1.2 Consolas, "Courier New", monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 10px 0 8px;
+    font-size: clamp(34px, 5vw, 52px);
+    line-height: 0.94;
+    letter-spacing: -0.04em;
+  }
+
+  h2 {
+    margin: 0 0 10px;
+    font-size: 1rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.5;
+    font-size: 0.95rem;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .chip {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--muted);
+    font: 11px/1.2 Consolas, "Courier New", monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .controls {
+    display: grid;
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .button-row,
+  .file-row,
+  .slider-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  button,
+  input,
+  textarea {
+    font: inherit;
+  }
+
+  button {
+    border: 1px solid rgba(155, 212, 255, 0.30);
+    background: linear-gradient(180deg, rgba(28, 53, 89, 0.98), rgba(11, 22, 40, 0.98));
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform 120ms ease, border-color 120ms ease;
+  }
+
+  button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(142, 245, 209, 0.7);
+  }
+
+  .ghost {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .field {
+    display: grid;
+    gap: 6px;
+  }
+
+  .field label {
+    color: var(--muted);
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(3, 8, 14, 0.78);
+    color: var(--text);
+    line-height: 1.45;
+  }
+
+  .slider {
+    display: grid;
+    gap: 4px;
+    min-width: 124px;
+    flex: 1 1 120px;
+  }
+
+  .slider label {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .slider output {
+    color: var(--warm);
+    font-family: Consolas, "Courier New", monospace;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: #7ff6df;
+  }
+
+  input[type="file"] {
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+
+  .rare-list {
+    display: grid;
+    gap: 7px;
+  }
+
+  .rare-item {
+    display: grid;
+    grid-template-columns: 28px 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .rare-rank,
+  .rare-k,
+  .rare-seekers {
+    color: var(--muted);
+    font: 11px/1.2 Consolas, "Courier New", monospace;
+  }
+
+  .rare-char {
+    font-family: "Noto Serif CJK SC", "Songti SC", serif;
+    font-size: 1.2rem;
+    color: var(--text);
+  }
+
+  .sheet-grid {
+    display: grid;
+    gap: 2px;
+    padding: 10px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .cell {
+    min-height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    font-family: "Noto Serif CJK SC", "Songti SC", serif;
+    font-size: 0.98rem;
+    color: rgba(235, 245, 255, 0.92);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .cell.rare {
+    background: rgba(255, 216, 151, 0.12);
+    color: #ffe9c7;
+  }
+
+  .cell.targeted {
+    outline: 1px solid rgba(142, 245, 209, 0.58);
+    box-shadow: inset 0 0 18px rgba(142, 245, 209, 0.16);
+  }
+
+  .stage {
+    position: relative;
+    min-height: 720px;
+  }
+
+  canvas {
+    width: 100%;
+    height: calc(100vh - 36px);
+    min-height: 720px;
+    border-radius: 28px;
+    border: 1px solid rgba(155, 205, 255, 0.14);
+    box-shadow: var(--shadow);
+    display: block;
+    cursor: grab;
+    background:
+      radial-gradient(circle at center, rgba(255, 255, 255, 0.02), transparent 42%),
+      linear-gradient(180deg, rgba(0, 0, 0, 0.0), rgba(0, 0, 0, 0.16));
+  }
+
+  canvas:active {
+    cursor: grabbing;
+  }
+
+  .footer-note {
+    margin-top: 10px;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  @media (max-width: 1100px) {
+    .shell {
+      grid-template-columns: 1fr;
+    }
+
+    canvas {
+      height: 72vh;
+      min-height: 560px;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="stack">
+      <section class="panel">
+        <span class="eyebrow">Fusion Prototype</span>
+        <h1>Sheets. Cube. Gice.</h1>
+        <p>Each sheet is a 2D character field. Stack the sheets into a cube. The silly gice drift toward low-frequency Hanzi, so rarity becomes navigation rather than just a statistic.</p>
+        <div class="chips">
+          <span class="chip" id="sourceChip">source: THIS.ONE.feb.txt sample</span>
+          <span class="chip" id="statsChip">hanzi 0 / unique 0 / cube 0</span>
+          <span class="chip" id="focusChip">focus sheet: 1</span>
+        </div>
+
+        <div class="controls">
+          <div class="button-row">
+            <button id="loadSample">Load Sample</button>
+            <button id="analyzeText">Analyze</button>
+            <button id="toggleRun">Pause</button>
+            <button id="retargetAll" class="ghost">Retarget Gice</button>
+            <button id="scatterGice" class="ghost">Scatter</button>
+          </div>
+
+          <div class="file-row">
+            <input id="fileInput" type="file" accept=".txt,text/plain,.json">
+          </div>
+
+          <div class="field">
+            <label for="sourceText">Source text</label>
+            <textarea id="sourceText"></textarea>
+          </div>
+
+          <div class="slider-row">
+            <div class="slider">
+              <label for="sheetCount">Sheets <output id="sheetCountOut">8</output></label>
+              <input id="sheetCount" type="range" min="4" max="14" step="1" value="8">
+            </div>
+            <div class="slider">
+              <label for="rowsCount">Rows <output id="rowsCountOut">8</output></label>
+              <input id="rowsCount" type="range" min="4" max="12" step="1" value="8">
+            </div>
+            <div class="slider">
+              <label for="colsCount">Cols <output id="colsCountOut">8</output></label>
+              <input id="colsCount" type="range" min="4" max="12" step="1" value="8">
+            </div>
+          </div>
+
+          <div class="slider-row">
+            <div class="slider">
+              <label for="giceCount">Gice <output id="giceCountOut">6</output></label>
+              <input id="giceCount" type="range" min="3" max="12" step="1" value="6">
+            </div>
+            <div class="slider">
+              <label for="rareBias">Rare focus <output id="rareBiasOut">2.0</output></label>
+              <input id="rareBias" type="range" min="1.2" max="3.0" step="0.1" value="2.0">
+            </div>
+            <div class="slider">
+              <label for="focusSheet">Slice <output id="focusSheetOut">1</output></label>
+              <input id="focusSheet" type="range" min="0" max="7" step="1" value="0">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Rare Targets</h2>
+        <div class="rare-list" id="rareList"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Active Sheet</h2>
+        <div class="sheet-grid" id="sheetGrid"></div>
+        <p class="footer-note" id="sheetNote">The highlighted cells are currently being pursued by gice on this slice.</p>
+      </section>
+    </div>
+
+    <div class="stage">
+      <canvas id="scene" width="1200" height="920"></canvas>
+    </div>
+  </div>
+
+<script>
+const SAMPLE_TEXT = `人心道机智能思记识我你他爱梦时空量力场波粒合分生死变化通达流转连网宇宙恒久瞬语义重轻引斥轨星系元混序真假问答觉醒量子态监听中梦学生成球灵列出球灵强制强制保存记录列出梦找共振球灵跳转球灵查学汉字查增引力账本最近条清空历史回退导航符号保存退出球核核再见`;
+
+const GICE_NAMES = [
+  "quillbert",
+  "featherstone",
+  "waddles",
+  "greybeam",
+  "flappington",
+  "honksworth jr",
+  "mintbeak",
+  "soft orbit",
+  "puddle eyes",
+  "loopling",
+  "radial goose",
+  "rareleaf",
+];
+
+const GICE_COLORS = [
+  [138, 245, 209],
+  [159, 212, 255],
+  [255, 216, 151],
+  [243, 175, 255],
+  [255, 151, 189],
+  [199, 239, 160],
+];
+
+const canvas = document.getElementById("scene");
+const ctx = canvas.getContext("2d");
+
+const params = {
+  sheetCount: 8,
+  rowsCount: 8,
+  colsCount: 8,
+  giceCount: 6,
+  rareBias: 2.0,
+};
+
+const state = {
+  running: true,
+  autoRotate: true,
+  yaw: -0.68,
+  pitch: -0.38,
+  drag: null,
+  lastTime: 0,
+  sourceName: "THIS.ONE.feb.txt sample",
+  sourceText: SAMPLE_TEXT,
+  hanzi: [],
+  counts: new Map(),
+  entriesAsc: [],
+  entriesDesc: [],
+  minK: 1,
+  maxK: 1,
+  focusSheet: 0,
+  cells: [],
+  gice: [],
+  blooms: [],
+};
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function extractHanzi(text) {
+  return [...text].filter((ch) => ch >= "\u4e00" && ch <= "\u9fff");
+}
+
+function analyzeText(text, sourceName) {
+  let chars = extractHanzi(text);
+  if (!chars.length) {
+    chars = extractHanzi(SAMPLE_TEXT);
+    state.sourceName = `${sourceName} -> fallback sample`;
+    document.getElementById("sourceText").value = SAMPLE_TEXT;
+  } else {
+    state.sourceName = sourceName;
+  }
+
+  const freq = new Map();
+  for (const ch of chars) freq.set(ch, (freq.get(ch) || 0) + 1);
+
+  state.hanzi = chars;
+  state.counts = freq;
+  state.entriesAsc = [...freq.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0], "zh-Hans"));
+  state.entriesDesc = [...state.entriesAsc].slice().reverse();
+  state.minK = state.entriesAsc.length ? state.entriesAsc[0][1] : 1;
+  state.maxK = state.entriesDesc.length ? state.entriesDesc[0][1] : 1;
+
+  rebuildCube();
+}
+
+function buildCells() {
+  const cells = [];
+  const { sheetCount, rowsCount, colsCount } = params;
+  const total = sheetCount * rowsCount * colsCount;
+  if (!state.hanzi.length) return cells;
+  const stepX = colsCount > 1 ? 1.64 / (colsCount - 1) : 0;
+  const stepZ = rowsCount > 1 ? 1.64 / (rowsCount - 1) : 0;
+  const stepY = sheetCount > 1 ? 1.64 / (sheetCount - 1) : 0;
+
+  for (let index = 0; index < total; index++) {
+    const char = state.hanzi[index % state.hanzi.length];
+    const k = state.counts.get(char) || 1;
+    const sheet = Math.floor(index / (rowsCount * colsCount));
+    const local = index % (rowsCount * colsCount);
+    const row = Math.floor(local / colsCount);
+    const col = local % colsCount;
+    const x = -0.82 + col * stepX;
+    const y = -0.82 + sheet * stepY;
+    const z = -0.82 + row * stepZ;
+    const rarity = 1 / k;
+    const norm = state.maxK === state.minK ? 1 : 1 - (k - state.minK) / (state.maxK - state.minK);
+    cells.push({
+      index,
+      char,
+      k,
+      sheet,
+      row,
+      col,
+      x,
+      y,
+      z,
+      rarity,
+      norm,
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
+  return cells;
+}
+
+function makeGice() {
+  const list = [];
+  for (let i = 0; i < params.giceCount; i++) {
+    const angle = (i / Math.max(1, params.giceCount)) * Math.PI * 2;
+    list.push({
+      name: GICE_NAMES[i % GICE_NAMES.length],
+      color: GICE_COLORS[i % GICE_COLORS.length],
+      x: Math.cos(angle) * 1.18,
+      y: (Math.random() - 0.5) * 0.8,
+      z: Math.sin(angle) * 1.18,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+      targetIndex: -1,
+      trail: [],
+      wobble: Math.random() * Math.PI * 2,
+    });
+  }
+  state.gice = list;
+  retargetAll();
+}
+
+function rebuildCube() {
+  state.cells = buildCells();
+  state.focusSheet = clamp(state.focusSheet, 0, Math.max(0, params.sheetCount - 1));
+  document.getElementById("focusSheet").max = Math.max(0, params.sheetCount - 1);
+  document.getElementById("focusSheet").value = state.focusSheet;
+  makeGice();
+  updateUi();
+}
+
+function chooseTargetIndex() {
+  if (!state.cells.length) return -1;
+  let total = 0;
+  const weights = [];
+  for (const cell of state.cells) {
+    const weight = 1 / Math.pow(cell.k, params.rareBias);
+    total += weight;
+    weights.push(total);
+  }
+  let needle = Math.random() * total;
+  for (let i = 0; i < weights.length; i++) {
+    if (needle <= weights[i]) return i;
+  }
+  return state.cells.length - 1;
+}
+
+function retargetAll() {
+  for (const goose of state.gice) {
+    goose.targetIndex = chooseTargetIndex();
+  }
+  updateUi();
+}
+
+function scatterGice() {
+  for (const goose of state.gice) {
+    const angle = Math.random() * Math.PI * 2;
+    goose.x = Math.cos(angle) * (0.95 + Math.random() * 0.48);
+    goose.y = (Math.random() - 0.5) * 1.4;
+    goose.z = Math.sin(angle) * (0.95 + Math.random() * 0.48);
+    goose.vx = (Math.random() - 0.5) * 0.02;
+    goose.vy = (Math.random() - 0.5) * 0.02;
+    goose.vz = (Math.random() - 0.5) * 0.02;
+    goose.trail = [];
+  }
+}
+
+function rotatePoint(x, y, z) {
+  const cy = Math.cos(state.yaw);
+  const sy = Math.sin(state.yaw);
+  const x1 = x * cy + z * sy;
+  const z1 = -x * sy + z * cy;
+
+  const cx = Math.cos(state.pitch);
+  const sx = Math.sin(state.pitch);
+  const y2 = y * cx - z1 * sx;
+  const z2 = y * sx + z1 * cx;
+
+  return { x: x1, y: y2, z: z2 };
+}
+
+function projectPoint(x, y, z) {
+  const r = rotatePoint(x, y, z);
+  const depth = r.z + 3.2;
+  const scale = 330 / depth;
+  return {
+    x: canvas.width / 2 + r.x * scale,
+    y: canvas.height / 2 - r.y * scale,
+    scale,
+    depth: r.z,
+  };
+}
+
+function cubeEdges() {
+  const c = 0.95;
+  const corners = [
+    [-c, -c, -c], [c, -c, -c], [c, c, -c], [-c, c, -c],
+    [-c, -c, c], [c, -c, c], [c, c, c], [-c, c, c],
+  ];
+  const edges = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7],
+  ];
+  return { corners, edges };
+}
+
+function addBloom(x, y, z, char) {
+  state.blooms.push({ x, y, z, char, life: 1 });
+  if (state.blooms.length > 24) state.blooms.shift();
+}
+
+function stepSimulation(dtMs) {
+  const dt = Math.min(34, Math.max(8, dtMs)) * 0.06;
+
+  if (state.autoRotate) {
+    state.yaw += 0.0011 * dtMs * 0.04;
+  }
+
+  for (const bloom of state.blooms) {
+    bloom.life -= 0.018 * dt;
+  }
+  state.blooms = state.blooms.filter((bloom) => bloom.life > 0);
+
+  for (let i = 0; i < state.gice.length; i++) {
+    const goose = state.gice[i];
+    const target = state.cells[goose.targetIndex];
+    if (!target) {
+      goose.targetIndex = chooseTargetIndex();
+      continue;
+    }
+
+    let ax = 0;
+    let ay = 0;
+    let az = 0;
+
+    const dx = target.x - goose.x;
+    const dy = target.y - goose.y;
+    const dz = target.z - goose.z;
+    const dist = Math.hypot(dx, dy, dz) + 0.0001;
+    const pull = 0.0036 + target.norm * 0.010;
+    ax += (dx / dist) * pull;
+    ay += (dy / dist) * pull;
+    az += (dz / dist) * pull;
+
+    for (let j = 0; j < state.gice.length; j++) {
+      if (i === j) continue;
+      const other = state.gice[j];
+      const rx = goose.x - other.x;
+      const ry = goose.y - other.y;
+      const rz = goose.z - other.z;
+      const d2 = rx * rx + ry * ry + rz * rz + 0.01;
+      ax += rx / d2 * 0.0016;
+      ay += ry / d2 * 0.0016;
+      az += rz / d2 * 0.0016;
+    }
+
+    goose.wobble += 0.02 * dt;
+    ax += Math.sin(goose.wobble * 1.3) * 0.0008;
+    ay += Math.cos(goose.wobble * 1.6) * 0.0006;
+    az += Math.sin(goose.wobble) * 0.0008;
+
+    goose.vx = (goose.vx + ax * dt) * 0.94;
+    goose.vy = (goose.vy + ay * dt) * 0.94;
+    goose.vz = (goose.vz + az * dt) * 0.94;
+
+    goose.x += goose.vx * dt;
+    goose.y += goose.vy * dt;
+    goose.z += goose.vz * dt;
+
+    goose.x = clamp(goose.x, -1.08, 1.08);
+    goose.y = clamp(goose.y, -1.08, 1.08);
+    goose.z = clamp(goose.z, -1.08, 1.08);
+
+    goose.trail.push({ x: goose.x, y: goose.y, z: goose.z });
+    if (goose.trail.length > 24) goose.trail.shift();
+
+    if (dist < 0.085) {
+      addBloom(target.x, target.y, target.z, target.char);
+      goose.targetIndex = chooseTargetIndex();
+    }
+  }
+}
+
+function drawCubeFrame() {
+  const { corners, edges } = cubeEdges();
+  ctx.lineWidth = 1;
+  for (const [a, b] of edges) {
+    const pa = projectPoint(...corners[a]);
+    const pb = projectPoint(...corners[b]);
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.strokeStyle = "rgba(145, 197, 255, 0.16)";
+    ctx.stroke();
+  }
+}
+
+function drawFocusSheetPlane() {
+  if (params.sheetCount <= 1) return;
+  const y = lerp(-0.82, 0.82, state.focusSheet / (params.sheetCount - 1));
+  const corners = [
+    [-0.88, y, -0.88],
+    [0.88, y, -0.88],
+    [0.88, y, 0.88],
+    [-0.88, y, 0.88],
+  ].map((pt) => projectPoint(...pt));
+
+  ctx.beginPath();
+  ctx.moveTo(corners[0].x, corners[0].y);
+  for (let i = 1; i < corners.length; i++) ctx.lineTo(corners[i].x, corners[i].y);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(142, 245, 209, 0.05)";
+  ctx.strokeStyle = "rgba(142, 245, 209, 0.18)";
+  ctx.fill();
+  ctx.stroke();
+}
+
+function drawCells() {
+  const projected = state.cells.map((cell) => ({
+    cell,
+    point: projectPoint(cell.x, cell.y, cell.z),
+  })).sort((a, b) => a.point.depth - b.point.depth);
+
+  for (const item of projected) {
+    const { cell, point } = item;
+    const focus = cell.sheet === state.focusSheet;
+    const pulse = 0.5 + Math.sin(state.lastTime * 0.0012 + cell.phase) * 0.5;
+    const alpha = focus ? 0.92 : 0.22 + cell.norm * 0.16;
+    const radius = focus ? 10 + cell.norm * 7 : 2 + cell.norm * 2.8;
+    const hue = 206 - cell.norm * 46;
+    const light = focus ? 78 - cell.k * 2 : 46 + pulse * 12;
+
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${hue}, 72%, ${light}%, ${alpha})`;
+    ctx.fill();
+
+    if (focus) {
+      ctx.fillStyle = cell.k === state.minK ? "rgba(255, 235, 193, 0.98)" : "rgba(235, 245, 255, 0.92)";
+      ctx.font = `${Math.max(14, Math.min(30, 14 + cell.norm * 12))}px "Noto Serif CJK SC", "Songti SC", serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(cell.char, point.x, point.y + 1);
+    }
+  }
+}
+
+function drawTrailsAndGice() {
+  for (const goose of state.gice) {
+    const [r, g, b] = goose.color;
+    for (let i = 1; i < goose.trail.length; i++) {
+      const a = projectPoint(goose.trail[i - 1].x, goose.trail[i - 1].y, goose.trail[i - 1].z);
+      const c = projectPoint(goose.trail[i].x, goose.trail[i].y, goose.trail[i].z);
+      const alpha = (i / goose.trail.length) * 0.24;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(c.x, c.y);
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+  }
+
+  const projectedGice = state.gice.map((goose) => ({
+    goose,
+    point: projectPoint(goose.x, goose.y, goose.z),
+  })).sort((a, b) => a.point.depth - b.point.depth);
+
+  for (const item of projectedGice) {
+    const { goose, point } = item;
+    const [r, g, b] = goose.color;
+    const target = state.cells[goose.targetIndex];
+    if (target) {
+      const tp = projectPoint(target.x, target.y, target.z);
+      ctx.beginPath();
+      ctx.moveTo(point.x, point.y);
+      ctx.lineTo(tp.x, tp.y);
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.10)`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    const size = clamp(point.scale * 0.045, 7, 19);
+    ctx.beginPath();
+    ctx.ellipse(point.x, point.y, size * 0.95, size * 0.72, 0, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.92)`;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(point.x - size * 0.22, point.y - size * 0.08, 1.8, 0, Math.PI * 2);
+    ctx.arc(point.x + size * 0.06, point.y - size * 0.08, 1.8, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(4, 12, 18, 0.9)";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(point.x + size * 0.65, point.y);
+    ctx.lineTo(point.x + size * 1.1, point.y - size * 0.12);
+    ctx.lineTo(point.x + size * 0.95, point.y + size * 0.18);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255, 195, 112, 0.92)";
+    ctx.fill();
+
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.88)`;
+    ctx.font = '12px Consolas, "Courier New", monospace';
+    ctx.textAlign = "center";
+    ctx.fillText(goose.name, point.x, point.y - size - 12);
+  }
+}
+
+function drawBlooms() {
+  for (const bloom of state.blooms) {
+    const point = projectPoint(bloom.x, bloom.y, bloom.z);
+    const radius = (1 - bloom.life) * 46 + 14;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255, 230, 193, ${bloom.life * 0.42})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = `rgba(255, 230, 193, ${bloom.life * 0.95})`;
+    ctx.font = `${18 + bloom.life * 10}px "Noto Serif CJK SC", "Songti SC", serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(bloom.char, point.x, point.y - radius * 0.1);
+  }
+}
+
+function drawHudCaption() {
+  ctx.fillStyle = "rgba(235, 245, 255, 0.58)";
+  ctx.font = '13px Consolas, "Courier New", monospace';
+  ctx.textAlign = "left";
+  ctx.fillText("sheeted character cube / gice seek inverse-frequency basins", 28, 34);
+}
+
+function draw() {
+  const bg = ctx.createRadialGradient(canvas.width * 0.52, canvas.height * 0.44, 0, canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.56);
+  bg.addColorStop(0, "rgba(15, 28, 48, 1)");
+  bg.addColorStop(0.55, "rgba(7, 14, 24, 1)");
+  bg.addColorStop(1, "rgba(2, 5, 10, 1)");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(28, 28, canvas.width - 56, canvas.height - 56);
+
+  drawFocusSheetPlane();
+  drawCubeFrame();
+  drawCells();
+  drawTrailsAndGice();
+  drawBlooms();
+  drawHudCaption();
+}
+
+function updateRareList() {
+  const rareList = document.getElementById("rareList");
+  rareList.innerHTML = "";
+  const countsByChar = new Map();
+  for (const goose of state.gice) {
+    const target = state.cells[goose.targetIndex];
+    if (!target) continue;
+    countsByChar.set(target.char, (countsByChar.get(target.char) || 0) + 1);
+  }
+
+  state.entriesAsc.slice(0, 12).forEach(([char, k], idx) => {
+    const row = document.createElement("div");
+    row.className = "rare-item";
+    row.innerHTML = `
+      <span class="rare-rank">${idx + 1}</span>
+      <span class="rare-char">${char}</span>
+      <span class="rare-k">K=${k}</span>
+      <span class="rare-seekers">${countsByChar.get(char) || 0} gice</span>
+    `;
+    rareList.appendChild(row);
+  });
+}
+
+function updateSheetGrid() {
+  const grid = document.getElementById("sheetGrid");
+  const targeted = new Set(
+    state.gice
+      .map((goose) => state.cells[goose.targetIndex])
+      .filter(Boolean)
+      .filter((cell) => cell.sheet === state.focusSheet)
+      .map((cell) => `${cell.row}:${cell.col}`)
+  );
+
+  grid.innerHTML = "";
+  grid.style.gridTemplateColumns = `repeat(${params.colsCount}, minmax(0, 1fr))`;
+  const focusCells = state.cells.filter((cell) => cell.sheet === state.focusSheet);
+  for (const cell of focusCells) {
+    const div = document.createElement("div");
+    const rare = cell.k === state.minK;
+    div.className = `cell${rare ? " rare" : ""}${targeted.has(`${cell.row}:${cell.col}`) ? " targeted" : ""}`;
+    div.textContent = cell.char;
+    div.title = `${cell.char} / K=${cell.k} / row ${cell.row + 1}, col ${cell.col + 1}`;
+    grid.appendChild(div);
+  }
+}
+
+function updateUi() {
+  document.getElementById("sheetCountOut").textContent = params.sheetCount;
+  document.getElementById("rowsCountOut").textContent = params.rowsCount;
+  document.getElementById("colsCountOut").textContent = params.colsCount;
+  document.getElementById("giceCountOut").textContent = params.giceCount;
+  document.getElementById("rareBiasOut").textContent = params.rareBias.toFixed(1);
+  document.getElementById("focusSheetOut").textContent = state.focusSheet + 1;
+  document.getElementById("toggleRun").textContent = state.running ? "Pause" : "Resume";
+  document.getElementById("sourceChip").textContent = `source: ${state.sourceName}`;
+  document.getElementById("statsChip").textContent = `hanzi ${state.hanzi.length} / unique ${state.counts.size} / cube ${state.cells.length}`;
+  document.getElementById("focusChip").textContent = `focus sheet: ${state.focusSheet + 1} / ${params.sheetCount}`;
+  updateRareList();
+  updateSheetGrid();
+}
+
+function animate(ts) {
+  if (!state.lastTime) state.lastTime = ts;
+  const dt = ts - state.lastTime;
+  state.lastTime = ts;
+  if (state.running) stepSimulation(dt);
+  draw();
+  requestAnimationFrame(animate);
+}
+
+function bindSlider(id, onInput) {
+  const input = document.getElementById(id);
+  input.addEventListener("input", () => onInput(input.value));
+}
+
+document.getElementById("loadSample").addEventListener("click", () => {
+  document.getElementById("sourceText").value = SAMPLE_TEXT;
+  analyzeText(SAMPLE_TEXT, "THIS.ONE.feb.txt sample");
+});
+
+document.getElementById("analyzeText").addEventListener("click", () => {
+  const text = document.getElementById("sourceText").value;
+  analyzeText(text, "manual");
+});
+
+document.getElementById("toggleRun").addEventListener("click", () => {
+  state.running = !state.running;
+  updateUi();
+});
+
+document.getElementById("retargetAll").addEventListener("click", () => {
+  retargetAll();
+});
+
+document.getElementById("scatterGice").addEventListener("click", () => {
+  scatterGice();
+});
+
+document.getElementById("fileInput").addEventListener("change", async (event) => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  document.getElementById("sourceText").value = text;
+  analyzeText(text, file.name);
+});
+
+bindSlider("sheetCount", (value) => {
+  params.sheetCount = parseInt(value, 10);
+  state.focusSheet = clamp(state.focusSheet, 0, params.sheetCount - 1);
+  rebuildCube();
+});
+
+bindSlider("rowsCount", (value) => {
+  params.rowsCount = parseInt(value, 10);
+  rebuildCube();
+});
+
+bindSlider("colsCount", (value) => {
+  params.colsCount = parseInt(value, 10);
+  rebuildCube();
+});
+
+bindSlider("giceCount", (value) => {
+  params.giceCount = parseInt(value, 10);
+  makeGice();
+  updateUi();
+});
+
+bindSlider("rareBias", (value) => {
+  params.rareBias = parseFloat(value);
+  retargetAll();
+  updateUi();
+});
+
+bindSlider("focusSheet", (value) => {
+  state.focusSheet = parseInt(value, 10);
+  updateUi();
+});
+
+canvas.addEventListener("mousedown", (event) => {
+  state.autoRotate = false;
+  state.drag = {
+    x: event.clientX,
+    y: event.clientY,
+    yaw: state.yaw,
+    pitch: state.pitch,
+  };
+});
+
+window.addEventListener("mousemove", (event) => {
+  if (!state.drag) return;
+  const dx = event.clientX - state.drag.x;
+  const dy = event.clientY - state.drag.y;
+  state.yaw = state.drag.yaw + dx * 0.006;
+  state.pitch = clamp(state.drag.pitch + dy * 0.004, -1.2, 1.2);
+});
+
+window.addEventListener("mouseup", () => {
+  state.drag = null;
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === " ") {
+    event.preventDefault();
+    state.running = !state.running;
+    updateUi();
+  } else if (event.key === "r" || event.key === "R") {
+    retargetAll();
+  } else if (event.key === "a" || event.key === "A") {
+    state.autoRotate = !state.autoRotate;
+  } else if (event.key === "ArrowUp") {
+    state.focusSheet = clamp(state.focusSheet + 1, 0, params.sheetCount - 1);
+    document.getElementById("focusSheet").value = state.focusSheet;
+    updateUi();
+  } else if (event.key === "ArrowDown") {
+    state.focusSheet = clamp(state.focusSheet - 1, 0, params.sheetCount - 1);
+    document.getElementById("focusSheet").value = state.focusSheet;
+    updateUi();
+  }
+});
+
+document.getElementById("sourceText").value = SAMPLE_TEXT;
+analyzeText(SAMPLE_TEXT, "THIS.ONE.feb.txt sample");
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

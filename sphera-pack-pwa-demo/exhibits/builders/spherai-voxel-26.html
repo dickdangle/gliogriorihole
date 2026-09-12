@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Spherai Voxel 64 · Quaternion Rainbow Octaves</title>
+    <style>
+        :root {
+            --bg-deep: #040812;
+            --bg-mid: #0d1526;
+            --panel: rgba(8, 15, 28, 0.82);
+            --panel-strong: rgba(12, 22, 40, 0.92);
+            --line: rgba(156, 197, 255, 0.28);
+            --text-main: #ecf4ff;
+            --text-soft: #9bb2d8;
+            --accent: #8ed2ff;
+            --accent-strong: #5bf3db;
+            --focus: #ffd98a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(53, 95, 168, 0.22), transparent 28%),
+                radial-gradient(circle at 80% 15%, rgba(51, 183, 152, 0.18), transparent 24%),
+                radial-gradient(circle at 50% 80%, rgba(90, 72, 164, 0.14), transparent 30%),
+                linear-gradient(180deg, var(--bg-mid), var(--bg-deep));
+            color: var(--text-main);
+        }
+
+        #info {
+            position: absolute;
+            top: 18px;
+            left: 18px;
+            max-width: 420px;
+            padding: 16px 18px;
+            border-radius: 18px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+            backdrop-filter: blur(12px);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #info h1 {
+            margin: 0 0 8px;
+            font-size: 1rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--accent-strong);
+        }
+
+        #info p {
+            margin: 0;
+            line-height: 1.45;
+            color: var(--text-soft);
+            font-size: 0.95rem;
+        }
+
+        #controls {
+            position: absolute;
+            left: 18px;
+            right: 18px;
+            bottom: 18px;
+            display: grid;
+            gap: 14px;
+            padding: 16px 18px;
+            border-radius: 22px;
+            background: var(--panel-strong);
+            border: 1px solid var(--line);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(14px);
+            z-index: 20;
+        }
+
+        .control-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            justify-content: space-between;
+        }
+
+        .control-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+
+        button {
+            border: 1px solid rgba(141, 210, 255, 0.45);
+            background: linear-gradient(180deg, rgba(32, 55, 90, 0.95), rgba(12, 24, 45, 0.95));
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            font: inherit;
+            letter-spacing: 0.03em;
+            transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            background: linear-gradient(180deg, rgba(46, 78, 125, 0.98), rgba(18, 34, 59, 0.98));
+            border-color: rgba(91, 243, 219, 0.7);
+        }
+
+        button.is-active {
+            background: linear-gradient(180deg, rgba(37, 119, 124, 0.98), rgba(16, 70, 80, 0.98));
+            border-color: rgba(91, 243, 219, 0.9);
+            color: #f4fffe;
+        }
+
+        label {
+            color: var(--text-soft);
+            font-size: 0.86rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        input[type="range"] {
+            width: 148px;
+            accent-color: var(--accent-strong);
+        }
+
+        .chip {
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-soft);
+            font-size: 0.8rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .legend span {
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 0.78rem;
+            letter-spacing: 0.04em;
+        }
+
+        .legend button {
+            padding: 5px 11px;
+            border-radius: 999px;
+            font-family: "Consolas", "Courier New", monospace;
+            font-size: 0.76rem;
+        }
+
+        .mono {
+            font-family: "Consolas", "Courier New", monospace;
+        }
+
+        @media (max-width: 900px) {
+            #controls {
+                gap: 12px;
+            }
+
+            .control-row {
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>Spherai Voxel 64 · Quaternion Edition</h1>
+        <p>
+            64 workbook sheets: eight complete Zooter rainbow octaves.
+            Drag anywhere to rotate without poles or gimbal lock; scroll to zoom.
+            <span class="mono" id="hudFocus">DO · C / octave 01</span>
+        </p>
+    </div>
+
+    <div id="controls">
+        <div class="control-row">
+            <div class="control-group">
+                <button id="btnGeometry" class="is-active">Sphere Warp</button>
+                <button id="btnView">All 64 Sheets</button>
+                <button id="btnSweep">64-Sheet Sweep</button>
+                <button id="btnReset">Reset Quaternion</button>
+                <button id="btnPulse">Resonance Drift</button>
+            </div>
+            <div class="control-group">
+                <span class="chip mono" id="hudMode">Sphere / all sheets</span>
+                <span class="chip mono" id="hudCount">0 voxels</span>
+                <span class="chip mono" id="hudDominant">dominant: quiet</span>
+                <span class="chip mono" id="hudQuaternion">q 0.000 · 0.000 · 0.000 · 1.000</span>
+            </div>
+        </div>
+
+        <div class="control-row">
+            <div class="control-group">
+                <label for="densityThresh">Density threshold</label>
+                <input type="range" id="densityThresh" min="0" max="10" step="1" value="4">
+                <span class="mono" id="threshVal">>= 4</span>
+            </div>
+            <div class="control-group">
+                <label for="focusSheet">Focus note</label>
+                <input type="range" id="focusSheet" min="1" max="8" step="1" value="1">
+                <span class="mono" id="focusVal">01</span>
+            </div>
+            <div class="control-group">
+                <label for="focusOctave">Focus octave</label>
+                <input type="range" id="focusOctave" min="1" max="8" step="1" value="1">
+                <span class="mono" id="octaveVal">01</span>
+            </div>
+        </div>
+
+        <div class="legend mono" id="legend"></div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from "three";
+
+        const SHEETS = 64;
+        const ROWS = 96;
+        const COLS = 96;
+        const INNER_RADIUS = 18;
+        const OUTER_RADIUS = 82;
+        const DENSITY = ["@", "#", "%", "&", "*", "+", "=", "-", ".", ",", " "];
+        const ZOOTER_SHELLS = 8;
+        const RAINBOW_OCTAVES = 8;
+        const SHELL_LAYERS = [
+            { name: "DO",  note: "C",  hue: 0,   frequency: 261.63, color: 0xff5f62 },
+            { name: "RE",  note: "D",  hue: 30,  frequency: 293.66, color: 0xffa34f },
+            { name: "MI",  note: "E",  hue: 60,  frequency: 329.63, color: 0xe7dc58 },
+            { name: "FA",  note: "F",  hue: 120, frequency: 349.23, color: 0x65d477 },
+            { name: "SOL", note: "G",  hue: 180, frequency: 392.00, color: 0x58d5d5 },
+            { name: "LA",  note: "A",  hue: 220, frequency: 440.00, color: 0x669cff },
+            { name: "TI",  note: "B",  hue: 270, frequency: 493.88, color: 0xae78ef },
+            { name: "DO'", note: "C'", hue: 310, frequency: 523.25, color: 0xee78c0 },
+        ];
+
+        let geometryMode = "sphere";
+        let displayMode = "all";
+        let densityThreshold = 4;
+        let focusLayer = 0;
+        let focusOctave = 0;
+        let lightSpeedActive = false;
+        let fieldPulseActive = false;
+        let currentGroup = null;
+        let currentGuide = null;
+        let scene;
+        let camera;
+        let renderer;
+        let starField;
+        let elapsedTime = 0;
+        const fieldOrientation = new THREE.Quaternion();
+        const rotationStep = new THREE.Quaternion();
+        const arcball = {
+            dragging: false,
+            pointerId: null,
+            startVector: new THREE.Vector3(),
+            startOrientation: new THREE.Quaternion(),
+        };
+
+        const clock = new THREE.Clock();
+        const materialCache = new Map();
+        const focusSlider = document.getElementById("focusSheet");
+        const octaveSlider = document.getElementById("focusOctave");
+        const densitySlider = document.getElementById("densityThresh");
+
+        function layerIndexForSheet(sheetIndex) {
+            return sheetIndex % ZOOTER_SHELLS;
+        }
+
+        function octaveIndexForSheet(sheetIndex) {
+            return Math.floor(sheetIndex / ZOOTER_SHELLS);
+        }
+
+        function sheetIndexFor(layerIndex, octaveIndex) {
+            return octaveIndex * ZOOTER_SHELLS + layerIndex;
+        }
+
+        function shellInfoForSheet(sheetIndex) {
+            return SHELL_LAYERS[layerIndexForSheet(sheetIndex)];
+        }
+
+        function sheetRangeForLayer(layerIndex) {
+            const sheets = [];
+            for (let sheetIndex = 0; sheetIndex < SHEETS; sheetIndex += 1) {
+                if (layerIndexForSheet(sheetIndex) === layerIndex) sheets.push(sheetIndex);
+            }
+            return sheets;
+        }
+
+        function seededScalar(z, y, x, seed = 64) {
+            const zNorm = z / Math.max(1, SHEETS - 1);
+            const yNorm = y / Math.max(1, ROWS - 1);
+            const xNorm = x / Math.max(1, COLS - 1);
+
+            let value =
+                Math.sin(zNorm * 15.7 + seed * 0.14) * 0.33 +
+                Math.cos(yNorm * 12.4 - zNorm * 5.2) * 0.24 +
+                Math.sin(xNorm * 14.6 + zNorm * 3.8) * 0.21 +
+                Math.sin((x + y + z * 11) * 0.073) * 0.16 +
+                Math.cos((x - y + z * 7) * 0.041) * 0.11;
+
+            value = (value + 1.15) / 2.3;
+            value = Math.max(0, Math.min(0.9999, value));
+            const index = Math.floor(value * DENSITY.length);
+            return DENSITY[Math.min(index, DENSITY.length - 1)];
+        }
+
+        function densityIndex(char) {
+            const index = DENSITY.indexOf(char);
+            return index >= 0 ? index : DENSITY.length - 1;
+        }
+
+        function getMaterial(colorHex) {
+            if (!materialCache.has(colorHex)) {
+                materialCache.set(
+                    colorHex,
+                    new THREE.MeshStandardMaterial({
+                        color: colorHex,
+                        emissive: colorHex,
+                        emissiveIntensity: 0.14,
+                        roughness: 0.42,
+                        metalness: 0.12,
+                        transparent: true,
+                        opacity: 0.93,
+                    }),
+                );
+            }
+            return materialCache.get(colorHex);
+        }
+
+        function shouldRenderSheet(sheetIndex) {
+            if (displayMode === "all") return true;
+            if (displayMode === "note") return layerIndexForSheet(sheetIndex) === focusLayer;
+            return layerIndexForSheet(sheetIndex) === focusLayer && octaveIndexForSheet(sheetIndex) === focusOctave;
+        }
+
+        function samplingStep() {
+            if (displayMode === "all") return 7;
+            if (displayMode === "note") return 4;
+            return 2;
+        }
+
+        function cubePosition(sheetIndex, row, col, step) {
+            const spacingXY = step * 0.85;
+            const spacingZ = 4.8;
+            return new THREE.Vector3(
+                (col - COLS / 2) * spacingXY,
+                (ROWS / 2 - row) * spacingXY,
+                (sheetIndex - (SHEETS - 1) / 2) * spacingZ,
+            );
+        }
+
+        function spherePosition(sheetIndex, row, col, density) {
+            const sheetT = sheetIndex / Math.max(1, SHEETS - 1);
+            const theta = ((row + 0.5) / ROWS) * Math.PI;
+            const phi = ((col + 0.5) / COLS) * Math.PI * 2;
+            const baseRadius = INNER_RADIUS + sheetT * (OUTER_RADIUS - INNER_RADIUS);
+            const densityLift = (DENSITY.length - 1 - density) * 0.34;
+            const braid = Math.sin(phi * 3.0 + theta * 2.4 + sheetIndex * 0.41) * 1.2;
+            const radius = baseRadius + densityLift + braid;
+            const sinTheta = Math.sin(theta);
+            return new THREE.Vector3(
+                radius * sinTheta * Math.cos(phi),
+                radius * Math.cos(theta),
+                radius * sinTheta * Math.sin(phi),
+            );
+        }
+
+        function voxelPosition(sheetIndex, row, col, density, step) {
+            if (geometryMode === "cube") {
+                return cubePosition(sheetIndex, row, col, step);
+            }
+            return spherePosition(sheetIndex, row, col, density);
+        }
+
+        function disposeCurrentGroup() {
+            if (!currentGroup) {
+                return;
+            }
+            scene.remove(currentGroup);
+            if (currentGroup.userData.geometry) {
+                currentGroup.userData.geometry.dispose();
+            }
+            currentGroup = null;
+        }
+
+        function disposeCurrentGuide() {
+            if (!currentGuide) {
+                return;
+            }
+            scene.remove(currentGuide);
+            currentGuide.traverse((child) => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            });
+            currentGuide = null;
+        }
+
+        function buildGuide() {
+            disposeCurrentGuide();
+            if (geometryMode !== "sphere") {
+                return;
+            }
+
+            const focusInfo = SHELL_LAYERS[focusLayer];
+            const guide = new THREE.Group();
+            const octaves = displayMode === "sheet" ? [focusOctave] : [...Array(RAINBOW_OCTAVES).keys()];
+            for (const octaveIndex of octaves) {
+                const sheetIndex = sheetIndexFor(focusLayer, octaveIndex);
+                const radius = INNER_RADIUS + (sheetIndex / Math.max(1, SHEETS - 1)) * (OUTER_RADIUS - INNER_RADIUS) + 1.5;
+                const geometry = new THREE.SphereGeometry(radius, 24, 14);
+                const material = new THREE.MeshBasicMaterial({
+                    color: focusInfo.color,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: displayMode === "all" ? 0.025 : displayMode === "note" ? 0.10 : 0.22,
+                });
+                guide.add(new THREE.Mesh(geometry, material));
+            }
+            scene.add(guide);
+            currentGuide = guide;
+            currentGuide.quaternion.copy(fieldOrientation);
+        }
+
+        function updateHud(visibleCount, dominantLayer) {
+            const focusInfo = SHELL_LAYERS[focusLayer];
+            const dominantInfo = Number.isInteger(dominantLayer) ? SHELL_LAYERS[dominantLayer] : null;
+
+            document.getElementById("hudFocus").textContent =
+                `${focusInfo.name} · ${focusInfo.note} / octave ${String(focusOctave + 1).padStart(2, "0")} · ${focusInfo.frequency.toFixed(2)} Hz`;
+            const viewLabel = displayMode === "all" ? "64 sheets · 8 × 8" : displayMode === "note" ? `${focusInfo.name} across 8 octaves` : `${focusInfo.name} · octave ${focusOctave + 1}`;
+            document.getElementById("hudMode").textContent =
+                `${geometryMode === "sphere" ? "Sphere" : "Cube"} / ${viewLabel}`;
+            document.getElementById("hudCount").textContent = `${visibleCount.toLocaleString()} voxels`;
+            document.getElementById("hudDominant").textContent =
+                `dominant: ${dominantInfo ? `${dominantInfo.name} · ${dominantInfo.note}` : "quiet"}`;
+            document.getElementById("focusVal").textContent = `${String(focusLayer + 1).padStart(2, "0")} · ${focusInfo.name}`;
+            document.getElementById("octaveVal").textContent = String(focusOctave + 1).padStart(2, "0");
+        }
+
+        function syncControls() {
+            const geometryButton = document.getElementById("btnGeometry");
+            const viewButton = document.getElementById("btnView");
+            const sweepButton = document.getElementById("btnSweep");
+            const pulseButton = document.getElementById("btnPulse");
+
+            geometryButton.textContent = geometryMode === "sphere" ? "Sphere Warp" : "Cube Lattice";
+            viewButton.textContent = displayMode === "all" ? "All 64 Sheets" : displayMode === "note" ? `${SHELL_LAYERS[focusLayer].name} · 8 Octaves` : `${SHELL_LAYERS[focusLayer].name} · Octave ${focusOctave + 1}`;
+            sweepButton.textContent = lightSpeedActive ? "Stop 64-Sheet Sweep" : "64-Sheet Sweep";
+            pulseButton.textContent = fieldPulseActive ? "Resonance Drift On" : "Resonance Drift";
+
+            geometryButton.classList.toggle("is-active", geometryMode === "sphere");
+            viewButton.classList.toggle("is-active", displayMode !== "all");
+            sweepButton.classList.toggle("is-active", lightSpeedActive);
+            pulseButton.classList.toggle("is-active", fieldPulseActive);
+
+            densitySlider.value = String(densityThreshold);
+            document.getElementById("threshVal").textContent = `>= ${densityThreshold}`;
+            focusSlider.value = String(focusLayer + 1);
+            octaveSlider.value = String(focusOctave + 1);
+            document.getElementById("focusVal").textContent = `${String(focusLayer + 1).padStart(2, "0")} · ${SHELL_LAYERS[focusLayer].name}`;
+            document.getElementById("octaveVal").textContent = String(focusOctave + 1).padStart(2, "0");
+        }
+
+        function rebuildVoxels() {
+            disposeCurrentGroup();
+            const group = new THREE.Group();
+            const step = samplingStep();
+            const visibleCounts = new Map();
+            let visibleCount = 0;
+            let dominantLayer = null;
+
+            const voxelSize = geometryMode === "sphere" ? (displayMode === "all" ? 1.45 : displayMode === "note" ? 1.9 : 2.35) : step * 0.78;
+            const geometry = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+
+            // Each sampled point becomes a small cube whose position is warped into shell space.
+            for (let sheetIndex = 0; sheetIndex < SHEETS; sheetIndex += 1) {
+                if (!shouldRenderSheet(sheetIndex)) {
+                    continue;
+                }
+
+                for (let row = 0; row < ROWS; row += step) {
+                    for (let col = 0; col < COLS; col += step) {
+                        const sampleRow = Math.min(ROWS - 1, row + Math.floor(step * 0.5));
+                        const sampleCol = Math.min(COLS - 1, col + Math.floor(step * 0.5));
+                        const char = seededScalar(sheetIndex, sampleRow, sampleCol);
+                        const density = densityIndex(char);
+                        if (density < densityThreshold) {
+                            continue;
+                        }
+
+                        const position = voxelPosition(sheetIndex, sampleRow, sampleCol, density, step);
+                        const normal = position.lengthSq() > 0.0001 ? position.clone().normalize() : new THREE.Vector3(0, 1, 0);
+                        const layerIndex = layerIndexForSheet(sheetIndex);
+                        const colorHex = SHELL_LAYERS[layerIndex].color;
+                        const mesh = new THREE.Mesh(geometry, getMaterial(colorHex));
+                        mesh.position.copy(position);
+                        mesh.userData.basePosition = position.clone();
+                        mesh.userData.normal = normal;
+                        mesh.userData.sheet = sheetIndex;
+                        mesh.userData.layer = layerIndex;
+                        mesh.userData.octave = octaveIndexForSheet(sheetIndex);
+                        mesh.userData.density = density;
+                        mesh.userData.amplitude = 0.25 + (DENSITY.length - 1 - density) * 0.06;
+                        mesh.userData.baseScale = 1 + (DENSITY.length - 1 - density) * 0.02;
+                        group.add(mesh);
+
+                        visibleCount += 1;
+                        visibleCounts.set(layerIndex, (visibleCounts.get(layerIndex) || 0) + 1);
+                    }
+                }
+            }
+
+            dominantLayer = [...visibleCounts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0];
+            group.userData.geometry = geometry;
+            scene.add(group);
+            currentGroup = group;
+            currentGroup.quaternion.copy(fieldOrientation);
+
+            buildGuide();
+            updateHud(visibleCount, dominantLayer);
+            syncControls();
+        }
+
+        // Virtual arcball: every drag resolves directly to a unit quaternion.
+        // No Euler angles are accumulated, so all orientations remain reachable.
+        function pointerToArcball(clientX, clientY) {
+            const bounds = renderer.domElement.getBoundingClientRect();
+            const vector = new THREE.Vector3(
+                ((clientX - bounds.left) / bounds.width) * 2 - 1,
+                1 - ((clientY - bounds.top) / bounds.height) * 2,
+                0,
+            );
+            const lengthSq = vector.x * vector.x + vector.y * vector.y;
+            if (lengthSq <= 1) vector.z = Math.sqrt(1 - lengthSq);
+            else vector.normalize();
+            return vector.normalize();
+        }
+
+        function applyFieldOrientation() {
+            if (currentGroup) currentGroup.quaternion.copy(fieldOrientation);
+            if (currentGuide) currentGuide.quaternion.copy(fieldOrientation);
+        }
+
+        function resetFieldOrientation() {
+            fieldOrientation.identity();
+            applyFieldOrientation();
+            updateQuaternionHud();
+        }
+
+        function updateQuaternionHud() {
+            const q = fieldOrientation;
+            document.getElementById("hudQuaternion").textContent =
+                `q ${q.x.toFixed(3)} · ${q.y.toFixed(3)} · ${q.z.toFixed(3)} · ${q.w.toFixed(3)}`;
+        }
+
+        function bindQuaternionArcball() {
+            const canvas = renderer.domElement;
+            canvas.style.touchAction = "none";
+
+            canvas.addEventListener("pointerdown", (event) => {
+                if (event.button !== 0) return;
+                arcball.dragging = true;
+                arcball.pointerId = event.pointerId;
+                arcball.startVector.copy(pointerToArcball(event.clientX, event.clientY));
+                arcball.startOrientation.copy(fieldOrientation);
+                canvas.setPointerCapture(event.pointerId);
+            });
+
+            canvas.addEventListener("pointermove", (event) => {
+                if (!arcball.dragging || event.pointerId !== arcball.pointerId) return;
+                const currentVector = pointerToArcball(event.clientX, event.clientY);
+                rotationStep.setFromUnitVectors(arcball.startVector, currentVector);
+                fieldOrientation.copy(rotationStep).multiply(arcball.startOrientation).normalize();
+                applyFieldOrientation();
+                updateQuaternionHud();
+            });
+
+            const release = (event) => {
+                if (event.pointerId !== arcball.pointerId) return;
+                arcball.dragging = false;
+                arcball.pointerId = null;
+            };
+            canvas.addEventListener("pointerup", release);
+            canvas.addEventListener("pointercancel", release);
+
+            canvas.addEventListener("wheel", (event) => {
+                event.preventDefault();
+                const distance = camera.position.length();
+                const nextDistance = Math.max(92, Math.min(320, distance * Math.exp(event.deltaY * 0.001)));
+                camera.position.setLength(nextDistance);
+            }, { passive: false });
+        }
+
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x030611);
+            scene.fog = new THREE.FogExp2(0x030611, 0.0012);
+
+            camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 52, 170);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+            renderer.shadowMap.enabled = false;
+            document.body.appendChild(renderer.domElement);
+
+            camera.lookAt(0, 0, 0);
+            bindQuaternionArcball();
+
+            scene.add(new THREE.AmbientLight(0x6d7ca8, 0.78));
+
+            const keyLight = new THREE.DirectionalLight(0xcde5ff, 1.05);
+            keyLight.position.set(32, 44, 18);
+            scene.add(keyLight);
+
+            const rimLight = new THREE.PointLight(0x4ce2d9, 0.55, 260);
+            rimLight.position.set(-60, 18, -46);
+            scene.add(rimLight);
+
+            const underLight = new THREE.PointLight(0x6f59d9, 0.32, 240);
+            underLight.position.set(0, -64, 0);
+            scene.add(underLight);
+
+            const starsGeometry = new THREE.BufferGeometry();
+            const stars = [];
+            for (let index = 0; index < 1000; index += 1) {
+                stars.push((Math.random() - 0.5) * 420);
+                stars.push((Math.random() - 0.5) * 300);
+                stars.push((Math.random() - 0.5) * 420);
+            }
+            starsGeometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(stars), 3));
+            const starsMaterial = new THREE.PointsMaterial({ color: 0xdce8ff, size: 0.48, transparent: true, opacity: 0.9 });
+            starField = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(starField);
+        }
+
+        function buildLegend() {
+            const legend = document.getElementById("legend");
+            legend.innerHTML = SHELL_LAYERS.map((layer, index) => {
+                const layerNumber = String(index + 1).padStart(2, "0");
+                const color = `#${layer.color.toString(16).padStart(6, "0")}`;
+                return `<button type="button" data-layer="${index}" style="color:${color}">${layerNumber} ${layer.name} · ${layer.note}</button>`;
+            }).join("");
+
+            legend.addEventListener("click", (event) => {
+                const button = event.target.closest("[data-layer]");
+                if (!button) return;
+                focusLayer = Number(button.dataset.layer);
+                displayMode = "note";
+                lightSpeedActive = false;
+                rebuildVoxels();
+            });
+        }
+
+        function bindUi() {
+            document.getElementById("btnGeometry").addEventListener("click", () => {
+                geometryMode = geometryMode === "sphere" ? "cube" : "sphere";
+                rebuildVoxels();
+            });
+
+            document.getElementById("btnView").addEventListener("click", () => {
+                displayMode = displayMode === "all" ? "note" : displayMode === "note" ? "sheet" : "all";
+                lightSpeedActive = false;
+                rebuildVoxels();
+            });
+
+            document.getElementById("btnSweep").addEventListener("click", () => {
+                lightSpeedActive = !lightSpeedActive;
+                if (lightSpeedActive) {
+                    displayMode = "sheet";
+                }
+                syncControls();
+                rebuildVoxels();
+            });
+
+            document.getElementById("btnReset").addEventListener("click", resetFieldOrientation);
+
+            document.getElementById("btnPulse").addEventListener("click", () => {
+                fieldPulseActive = !fieldPulseActive;
+                if (!fieldPulseActive && currentGroup) {
+                    for (const mesh of currentGroup.children) {
+                        mesh.position.copy(mesh.userData.basePosition);
+                        mesh.scale.setScalar(mesh.userData.baseScale);
+                    }
+                }
+                syncControls();
+            });
+
+            densitySlider.addEventListener("input", (event) => {
+                densityThreshold = Number(event.target.value);
+                lightSpeedActive = false;
+                rebuildVoxels();
+            });
+
+            focusSlider.addEventListener("input", (event) => {
+                focusLayer = Math.max(0, Math.min(ZOOTER_SHELLS - 1, Number(event.target.value) - 1));
+                lightSpeedActive = false;
+                rebuildVoxels();
+            });
+
+            octaveSlider.addEventListener("input", (event) => {
+                focusOctave = Math.max(0, Math.min(RAINBOW_OCTAVES - 1, Number(event.target.value) - 1));
+                lightSpeedActive = false;
+                displayMode = "sheet";
+                rebuildVoxels();
+            });
+
+            window.addEventListener("resize", () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = Math.min(clock.getDelta(), 0.05);
+            elapsedTime += delta;
+            if (lightSpeedActive) {
+                const nextSheet = Math.floor(elapsedTime * 5.0) % SHEETS;
+                const nextLayer = layerIndexForSheet(nextSheet);
+                const nextOctave = octaveIndexForSheet(nextSheet);
+                if (nextLayer !== focusLayer || nextOctave !== focusOctave) {
+                    focusLayer = nextLayer;
+                    focusOctave = nextOctave;
+                    rebuildVoxels();
+                }
+            }
+
+            if (currentGroup) {
+                if (fieldPulseActive) {
+                    for (const mesh of currentGroup.children) {
+                        const wave = Math.sin(elapsedTime * 3.4 - mesh.userData.layer * 0.72 - mesh.userData.octave * 0.31 + mesh.userData.density * 0.37);
+                        if (geometryMode === "sphere") {
+                            mesh.position
+                                .copy(mesh.userData.basePosition)
+                                .addScaledVector(mesh.userData.normal, wave * mesh.userData.amplitude);
+                        }
+                        mesh.scale.setScalar(mesh.userData.baseScale + wave * 0.07);
+                    }
+                }
+
+                applyFieldOrientation();
+            }
+
+            if (Math.floor(elapsedTime * 10) % 5 === 0) updateQuaternionHud();
+            renderer.render(scene, camera);
+        }
+
+        initScene();
+        buildLegend();
+        bindUi();
+        rebuildVoxels();
+        animate();
+
+        console.log("Spherai Voxel 64 quaternion rainbow ready");
+    </script>
+</body>
+</html>

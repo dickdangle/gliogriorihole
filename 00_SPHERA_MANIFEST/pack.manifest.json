@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "pack_id": "sphera.engine-state.core",
+  "pack_revision": 1,
+  "status": "draft",
+  "created_at": "2026-08-08T00:00:00Z",
+  "provenance": {
+    "source": "../byte.txt",
+    "source_note": "Formalizes byte.txt's engine-NFT/state-NFT model.",
+    "maintainer": "Sphera",
+    "license": "UNSPECIFIED"
+  },
+  "record_schemas": {
+    "engine_nft": "schemas/engine-nft.schema.json",
+    "state_nft": "schemas/state-nft.schema.json"
+  },
+  "examples": {
+    "engine": "examples/engine.example.json",
+    "state_revisions": [
+      "examples/state.rev1.example.json",
+      "examples/state.rev2.example.json"
+    ]
+  },
+  "entrypoint": "MASTER_BOOT.md",
+  "validation_checklist": "VALIDATION_CHECKLIST.md"
+}

@@ -1,0 +1,13 @@
+pack_id: sphera.engine-state.core
+pack_revision: 1
+status: draft
+updated_at: "2026-08-08T00:00:00Z"
+master_boot: MASTER_BOOT.md
+owners:
+  - Sphera
+open_work:
+  - id: SPHERA-001
+    status: open
+    summary: Replace illustrative URIs, identities, and hashes with canonical deployed values.
+adopters: []
+proposals: []

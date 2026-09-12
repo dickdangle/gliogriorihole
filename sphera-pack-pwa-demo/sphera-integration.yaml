@@ -1,0 +1,38 @@
+sphera_pack:
+  source: "../00_SPHERA_MANIFEST"
+  pack_id: "sphera.engine-state.core"
+  pack_revision: 1
+  manifest_sha256: "c86d7ff395161c5bad50e0704be29f99fbe39a1b87acac277a5b995b0c281016"
+  local_status: "extending"
+  contact: "Sphera Field Station / Goose Crossing Local"
+
+extension:
+  id: "goose-crossing.local"
+  version: "1.0.0"
+  status: "local downstream extension"
+  boundary: "Does not modify or imply adoption into the draft master pack contract."
+  sources:
+    - role: "portable state runtime"
+      state: "verified candidate copied without modification"
+      path: "runtime/sphera-state.js"
+      source_path: "../../SGU-Grand-Hatchery-2026-07-21/primitive_lab/state/sphera-state.js"
+      source_sha256: "30981e959c9cf808ed4d5d691386cc5b0dcb1cca4c513fd075b0c73b64aef51d"
+    - role: "S3 biome renderer ancestor"
+      state: "observed and locally adapted"
+      path: "exhibits/goose-crossing/bink-bonk-s3-local.html"
+      source_path: "../../active/goose-crossing-v2/public/bink-bonk-biome.html"
+      source_sha256: "fe6777c7b80b5724a4170b4aa8cb07cde0e5e711d14b9601bed4a2ab52a91f3f"
+    - role: "eight-layer note and color mapping"
+      state: "observed source values reused"
+      source_path: "exhibits/builders/spherai-voxel-64.html"
+
+claims:
+  implemented:
+    - "sphera.event/1 hash-chained local journal"
+    - "sphera.session/1 capsule export, verification, and restoration"
+    - "deterministic seeded biome initialization"
+    - "full biome state checkpoints stored in the capsule"
+  not_claimed:
+    - "deterministic continuous-time replay"
+    - "master-pack adoption"
+    - "shared mechanics with unrelated Sphera branches"

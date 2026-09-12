@@ -1,0 +1,24 @@
+{
+  "name": "Sphera Field Station",
+  "short_name": "Sphera",
+  "description": "A pocket observatory for the Sphera Pack experiments.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#071018",
+  "theme_color": "#071018",
+  "icons": [
+    {"src":"./icons/sphera-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"./icons/sphera-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"},
+    {"src":"./icons/sphera.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}
+  ],
+  "shortcuts": [
+    {"name":"Sphere Gice Melody v2 — Honk Heist","url":"./exhibits/sphere-gice/sphere-gice-melody-v2-v3.3.html"},
+    {"name":"Spherai Voxel 64 · Quaternion","url":"./exhibits/builders/spherai-voxel-64.html"},
+    {"name":"Goose Cube Workbook","url":"./exhibits/builders/sm7-goose-cube-workbook.html"},
+    {"name":"Sheet Cube Gice","url":"./exhibits/sheet_cube_gice.html"},
+    {"name":"Project Zooter","url":"./exhibits/zooter/zooter_clean.html"},
+    {"name":"Hanzi Gravity","url":"./exhibits/hanzi/hanzi_gravity_sim.html"}
+  ]
+}

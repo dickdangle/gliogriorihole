@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#071018"/>
+  <circle cx="256" cy="256" r="148" fill="none" stroke="#8ef5d1" stroke-width="12"/>
+  <ellipse cx="256" cy="256" rx="62" ry="148" fill="none" stroke="#8ef5d1" stroke-width="10" transform="rotate(55 256 256)"/>
+  <ellipse cx="256" cy="256" rx="62" ry="148" fill="none" stroke="#8ef5d1" stroke-width="10" transform="rotate(-55 256 256)"/>
+  <circle cx="347" cy="139" r="18" fill="#ffd897"/>
+  <text x="256" y="285" fill="#8ef5d1" font-size="88" text-anchor="middle" font-family="serif">稀</text>
+</svg>

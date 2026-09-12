@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🦑 PROJECT ZOOTER · A.alpha.2</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            background: #000003; color: #aaa; font-family: monospace;
+            margin: 0; min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 16px;
+        }
+        canvas { border-radius: 10px; border: 1px solid #0a0020; display: block; }
+        button, input { font-family: inherit; }
+        .row { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; align-items: center; }
+        .sl { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #444; }
+        .sl span { min-width: 44px; color: #555; }
+        .sl input[type=range] { width: 78px; }
+        .sl output { min-width: 30px; }
+        .ck { font-size: 11px; color: #555; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+        .btn { border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 11px; font-family: monospace; }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ─── constants ───────────────────────────────────────────────
+const W = 800, H = 800, CX = W/2, CY = H/2;
+const SHELLS = 8, RINGS = 8, TPR = 18, TRAIL_LEN = 22;
+const SHELL_HUES  = [0, 30, 60, 120, 180, 220, 270, 310];
+const SHELL_NAMES = ["DO","RE","MI","FA","SOL","LA","TI","DO'"];
+const SHELL_NOTES = ["C","D","E","F","G","A","B","C'"];
+const SHELL_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+const SHELL_R = s => 38 + s * 52;
+const TILT    = s => 0.28 + s * 0.025;
+
+const SQUID_REGISTRY = [
+    { id:"S1", label:"hyperlattice",  hue:220, desc:"kangxi radical primitive keys" },
+    { id:"S2", label:"supersphere",   hue:270, desc:"ising tiles · concentric spherai" },
+    { id:"S3", label:"manifold",      hue:180, desc:"sinusoidal wave fabric · X/Y/Z" },
+    { id:"S4", label:"vamptracker",   hue:0,   desc:"blood · smut · narrative state" },
+    { id:"S5", label:"genesis.squid", hue:60,  desc:"world origin · this · ○" },
+];
+
+// ─── tile factory ─────────────────────────────────────────────
+function makeTiles() {
+    const t = [];
+    for (let s = 0; s < SHELLS; s++)
+        for (let r = 0; r < RINGS; r++)
+            for (let i = 0; i < TPR; i++)
+                t.push({
+                    s, r, i,
+                    spin:    Math.random() > 0.5 ? 1 : -1,
+                    vLon:   (Math.random() - 0.5) * 0.018,
+                    vLat:   (Math.random() - 0.5) * 0.009,
+                    dLon: 0, dLat: 0, energy: 0, pressure: 0,
+                    toroDir: Math.random() > 0.5 ? 1 : -1,
+                    facing:  Math.random() > 0.5 ? 1 : -1,
+                    type:    Math.random() < 0.66 ? "tarot" : "egg",
+                    crossings: 0,
+                    trail: []
+                });
+    return t;
+}
+
+function iIdx(tiles, s, r, i) {
+    return tiles.find(t => t.s === s && t.r === r && t.i === ((i + TPR) % TPR));
+}
+
+// ─── audio (singleton) ────────────────────────────────────────
+let _ac = null;
+function getAC() {
+    if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)();
+    return _ac;
+}
+function playTone(shell, pressure = 0.5, dur = 0.12) {
+    try {
+        const ac = getAC(), osc = ac.createOscillator(),
+              gain = ac.createGain(), filt = ac.createBiquadFilter();
+        filt.type = "bandpass"; filt.frequency.value = SHELL_FREQS[shell] * 2; filt.Q.value = 2;
+        osc.type = shell < 4 ? "sine" : "triangle";
+        osc.frequency.value = SHELL_FREQS[shell];
+        gain.gain.setValueAtTime(Math.min(0.08 + pressure * 0.12, 0.18), ac.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
+        osc.connect(filt); filt.connect(gain); gain.connect(ac.destination);
+        osc.start(); osc.stop(ac.currentTime + dur);
+    } catch(e) {}
+}
+function playHonk() {
+    try {
+        const ac = getAC();
+        [0, 80, 160].forEach(ms => {
+            const osc = ac.createOscillator(), gain = ac.createGain();
+            osc.type = "sawtooth";
+            osc.frequency.setValueAtTime(520, ac.currentTime + ms/1000);
+            osc.frequency.exponentialRampToValueAtTime(280, ac.currentTime + ms/1000 + 0.3);
+            gain.gain.setValueAtTime(0.25, ac.currentTime + ms/1000);
+            gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + ms/1000 + 0.35);
+            osc.connect(gain); gain.connect(ac.destination);
+            osc.start(ac.currentTime + ms/1000);
+            osc.stop(ac.currentTime + ms/1000 + 0.4);
+        });
+    } catch(e) {}
+}
+
+// ─── NEW: shell resonance ─────────────────────────────────────
+// When two adjacent shells are highly magnetically aligned,
+// play a harmonic interval between them (a fifth or third).
+// This makes inter-shell gravity audible as consonance/dissonance.
+const resonanceLastRef = {};
+function playResonance(sA, sB, strength) {
+    const key = `${sA}-${sB}`;
+    const now = Date.now();
+    if ((resonanceLastRef[key] || 0) + 1800 > now) return; // throttle
+    resonanceLastRef[key] = now;
+    try {
+        const ac = getAC();
+        const freqA = SHELL_FREQS[sA], freqB = SHELL_FREQS[sB];
+        [freqA, freqB].forEach((freq, idx) => {
+            const osc = ac.createOscillator(), gain = ac.createGain();
+            osc.type = "sine";
+            osc.frequency.value = freq;
+            const vol = Math.min(0.06 + strength * 0.08, 0.12);
+            gain.gain.setValueAtTime(vol, ac.currentTime + idx * 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.8);
+            osc.connect(gain); gain.connect(ac.destination);
+            osc.start(ac.currentTime + idx * 0.04);
+            osc.stop(ac.currentTime + 0.9);
+        });
+    } catch(e) {}
+}
+
+// ─── roundRect polyfill ───────────────────────────────────────
+function roundRect(ctx, x, y, w, h, r) {
+    r = Math.min(r, w/2, h/2);
+    ctx.moveTo(x+r, y);
+    ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+    ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+    ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+}
+
+// ─── point-in-polygon ─────────────────────────────────────────
+function inLasso(px, py, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length-1; i < pts.length; j = i++) {
+        const xi=pts[i].x, yi=pts[i].y, xj=pts[j].x, yj=pts[j].y;
+        if (((yi>py) !== (yj>py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi)) inside = !inside;
+    }
+    return inside;
+}
+
+// ─── main component ───────────────────────────────────────────
+function GenesisSquid() {
+    const canvasRef = useRef(null);
+    const tilesRef  = useRef(makeTiles());
+    const frameRef  = useRef(0);
+    const coneRef   = useRef(0);
+    const runRef    = useRef(true);
+    const hatchRef  = useRef(0);
+    const lastTonesRef = useRef({});
+    const pRef = useRef({
+        temp:2.27, speed:1.0, toroidalB:0.018, amplitude:18,
+        tilt:0.50, gravity:true, sinews:true, ghosts:true,
+        interpenetrate:true, sinewDepth:2, mu:0.3, sigma:0.5,
+        resonance:true,
+    });
+
+    const [params, setParams]     = useState(pRef.current);
+    const [running, setRunning]   = useState(true);
+    const [activeSquid, setActiveSquid] = useState("S5");
+    const [stats, setStats]       = useState({ M:"0.000", crossings:0, hatched:false });
+    const [selectedShell, setSelectedShell] = useState(null);
+    const lassoRef = useRef({ active:false, points:[], selected:[] });
+    const [lassoSelected, setLassoSelected] = useState([]);
+
+    const up = (k, v) => {
+        pRef.current = { ...pRef.current, [k]: v };
+        setParams({ ...pRef.current });
+    };
+
+    // ── wave perturbation ──
+    function waveZ(nx, ny, t) {
+        const p = pRef.current;
+        const x = (nx/40 - 0.5)*2, y = (ny/40 - 0.5)*2;
+        const r = Math.sqrt(x*x + y*y);
+        return (Math.sin(r * p.amplitude*0.04 - t * p.speed*2.0) * p.amplitude
+               + Math.sin((x+y)*4 - t * p.speed*1.6) * p.amplitude * 0.5)
+               * Math.exp(-r*r * 0.9);
+    }
+
+    // ── tile 3-D position ──
+    function getTilePos(tile) {
+        const p = pRef.current;
+        const sR = SHELL_R(tile.s), tilt = TILT(tile.s);
+        const ra = (tile.r / RINGS) * Math.PI + tile.dLat;
+        const la = (tile.i / TPR) * Math.PI*2 + tile.dLon + coneRef.current * (1 + tile.s*0.10);
+        const rY = Math.cos(Math.max(0.05, Math.min(Math.PI-0.05, ra)));
+        const rS = Math.sin(Math.max(0.05, Math.min(Math.PI-0.05, ra)));
+        const projR = sR * rS;
+        let waveOff = 0;
+        if (p.interpenetrate) {
+            const nx = (Math.cos(la)*projR / (40*6.8) + 0.5) * 40;
+            const ny = (Math.sin(la)*projR*tilt / (40*5.5) + 0.5) * 40;
+            waveOff = waveZ(nx, ny, frameRef.current) * 0.20;
+        }
+        return {
+            px: CX + Math.cos(la) * projR,
+            py: CY + rY*sR*tilt*(-2.3) + Math.sin(la)*projR*tilt + waveOff*12,
+            scale: rS,
+            depth: rY + tile.s * 0.01
+        };
+    }
+
+    // ── Ising + physics step ──
+    function stepIsing() {
+        const tiles = tilesRef.current;
+        const T = Math.max(pRef.current.temp, 0.01);
+        const p = pRef.current;
+
+        // Metropolis flips
+        for (let k = 0; k < 14; k++) {
+            const t = tiles[Math.floor(Math.random() * tiles.length)];
+            const nb = [
+                iIdx(tiles,t.s,t.r,t.i-1), iIdx(tiles,t.s,t.r,t.i+1),
+                iIdx(tiles,t.s,(t.r-1+RINGS)%RINGS,t.i),
+                iIdx(tiles,t.s,(t.r+1)%RINGS,t.i)
+            ].filter(Boolean);
+            const sumN = nb.reduce((a,n) => a+n.spin, 0);
+            const dE = 2 * t.spin * sumN;
+            t.energy = dE;
+            if (dE < 0 || Math.random() < Math.exp(-dE/T)) {
+                t.spin *= -1;
+                if (Math.random() < p.mu) t.facing *= Math.random() < p.sigma ? -1 : 1;
+            }
+        }
+
+        // velocities, positions, audio, trails
+        tiles.forEach(t => {
+            const right = iIdx(tiles,t.s,t.r,t.i+1);
+            const up2   = iIdx(tiles,t.s,(t.r+1)%RINGS,t.i);
+            const dLon  = right ? (right.spin - t.spin) * 0.007 : 0;
+            const dLat  = up2   ? (up2.spin   - t.spin) * 0.005 : 0;
+            t.pressure  = Math.abs(dLon) + Math.abs(dLat);
+            t.vLon = (t.vLon + dLon) * 0.92;
+            t.vLat = (t.vLat + dLat) * 0.92;
+            const la = (t.r/RINGS)*Math.PI + t.dLat;
+            t.vLon += p.toroidalB * t.toroDir * Math.sin(la);
+            t.vLon = Math.max(-0.07, Math.min(0.07, t.vLon));
+            t.vLat = Math.max(-0.04, Math.min(0.04, t.vLat));
+            t.dLon = (t.dLon + t.vLon + Math.PI*2) % (Math.PI*2);
+            t.dLat = Math.max(-0.4, Math.min(0.4, t.dLat + t.vLat));
+
+            // L0 crossing / hatch
+            if (t.s === 0 && Math.abs(t.dLat) < 0.05) {
+                t.crossings = (t.crossings||0) + 1;
+                if (t.crossings % 3 === 0) {
+                    hatchRef.current++;
+                    if (hatchRef.current === 9) playHonk();
+                }
+            }
+
+            // per-tile tone
+            const now = Date.now(), lt = lastTonesRef.current[t.s] || 0;
+            if (t.energy < 0 && now - lt > 80) {
+                lastTonesRef.current[t.s] = now;
+                playTone(t.s, t.pressure);
+            }
+
+            // trail
+            const pos = getTilePos(t);
+            t.trail.push({ px:pos.px, py:pos.py, spin:t.spin, type:t.type });
+            if (t.trail.length > TRAIL_LEN) t.trail.shift();
+        });
+
+        // inter-shell gravity + resonance
+        if (p.gravity) {
+            for (let s = 1; s < SHELLS; s++) {
+                const inner = tiles.filter(t => t.s === s-1);
+                const outer = tiles.filter(t => t.s === s);
+                const iMag  = inner.reduce((a,t) => a+t.spin, 0) / inner.length;
+                const oMag  = outer.reduce((a,t) => a+t.spin, 0) / outer.length;
+                outer.forEach(t => { t.vLon += iMag * 0.0006; });
+
+                // ── shell resonance (new) ──────────────────────────────
+                // if both shells are strongly aligned in same direction,
+                // play a harmonic interval between them
+                if (p.resonance) {
+                    const agreement = iMag * oMag; // positive = same polarity
+                    if (agreement > 0.55) {
+                        playResonance(s-1, s, agreement);
+                    }
+                }
+            }
+        }
+    }
+
+    // ── draw ──
+    function draw() {
+        const canvas = canvasRef.current; if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        const p = pRef.current;
+        const hatched = hatchRef.current >= 9;
+        ctx.clearRect(0,0,W,H);
+
+        // background
+        const bg = ctx.createRadialGradient(CX,CY,0,CX,CY,W*0.7);
+        bg.addColorStop(0,"#060010"); bg.addColorStop(0.5,"#020008"); bg.addColorStop(1,"#000003");
+        ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+        const tiles = tilesRef.current;
+
+        // shell outlines
+        for (let s = SHELLS-1; s >= 0; s--) {
+            const sR=SHELL_R(s), tilt=TILT(s), hue=SHELL_HUES[s], active=selectedShell===s;
+            ctx.beginPath();
+            ctx.ellipse(CX,CY,sR,sR*tilt*2.3,0,0,Math.PI*2);
+            ctx.strokeStyle = `hsla(${hue},60%,${active?45:18}%,${active?0.5:0.10})`;
+            ctx.lineWidth = active ? 1.5 : 0.5; ctx.stroke();
+            ctx.fillStyle = `hsla(${hue},60%,38%,0.35)`;
+            ctx.font = "8px monospace";
+            ctx.fillText(`L${s+1} ${SHELL_NAMES[s]} ${SHELL_NOTES[s]}`, CX+sR+4, CY);
+        }
+
+        // ghost trails
+        if (p.ghosts) {
+            tiles.forEach(tile => {
+                const trail = tile.trail; if (trail.length < 2) return;
+                const hue = SHELL_HUES[tile.s];
+                for (let k = 1; k < trail.length; k++) {
+                    ctx.beginPath();
+                    ctx.moveTo(trail[k-1].px, trail[k-1].py);
+                    ctx.lineTo(trail[k].px,   trail[k].py);
+                    ctx.strokeStyle = `hsla(${hue},${trail[k].type==="tarot"?85:40}%,${trail[k].spin===1?60:30}%,${(k/trail.length)*0.28})`;
+                    ctx.lineWidth = trail[k].type==="tarot" ? 0.9 : 0.4; ctx.stroke();
+                }
+            });
+        }
+
+        // bezier sinews
+        if (p.sinews) {
+            const depth = Math.max(1, Math.min(3, p.sinewDepth|0));
+            tiles.forEach(tile => {
+                const posA = getTilePos(tile); if (posA.scale < 0.06) return;
+                const hue = SHELL_HUES[tile.s];
+                for (let d = 1; d <= depth; d++) {
+                    [iIdx(tiles,tile.s,tile.r,tile.i+d),
+                     iIdx(tiles,tile.s,(tile.r+d)%RINGS,tile.i)
+                    ].filter(Boolean).forEach(nb => {
+                        const posB = getTilePos(nb); if (posB.scale < 0.06) return;
+                        const agree = tile.spin === nb.spin;
+                        const fh    = tile.facing === nb.facing;
+                        const ten   = (tile.pressure + nb.pressure) * 0.5;
+                        const alpha = agree ? 0.10+ten*0.28 : 0.03+ten*0.12;
+                        if (alpha < 0.015) return;
+                        const mx=(posA.px+posB.px)/2, my=(posA.py+posB.py)/2;
+                        const dx=posB.px-posA.px, dy=posB.py-posA.py;
+                        const len=Math.sqrt(dx*dx+dy*dy)||1;
+                        const bulge=(ten*28+7)*(agree?1:-1)*(fh?1:-0.5);
+                        ctx.beginPath();
+                        ctx.moveTo(posA.px, posA.py);
+                        ctx.quadraticCurveTo(mx+(-dy/len)*bulge, my+(dx/len)*bulge, posB.px, posB.py);
+                        ctx.strokeStyle = `hsla(${hue},${agree?65:35}%,${agree?55:35}%,${alpha})`;
+                        ctx.lineWidth = agree ? 0.55 : 0.25; ctx.stroke();
+                    });
+                }
+            });
+        }
+
+        // tiles back-to-front
+        [...tiles].sort((a,b) => getTilePos(a).depth - getTilePos(b).depth).forEach(tile => {
+            const {px,py,scale} = getTilePos(tile);
+            const hue = SHELL_HUES[tile.s];
+            const sz  = 2.5 + scale * 6.5;
+            const lit = tile.spin === 1 ? 58 : 20;
+            const sat = Math.min(65 + tile.pressure*90, 100);
+
+            if (tile.pressure > 0.008) {
+                ctx.beginPath(); ctx.arc(px,py,sz+tile.pressure*22,0,Math.PI*2);
+                const gl = ctx.createRadialGradient(px,py,0,px,py,sz+tile.pressure*22);
+                gl.addColorStop(0, `hsla(${hue},85%,65%,${tile.pressure*0.32})`);
+                gl.addColorStop(1, "transparent");
+                ctx.fillStyle = gl; ctx.fill();
+            }
+
+            ctx.save(); ctx.translate(px,py); ctx.rotate(tile.dLon*0.45 + tile.toroDir*0.3);
+            if (tile.type === "egg") {
+                ctx.beginPath(); ctx.ellipse(0,0,sz*0.6,sz*0.85,0,0,Math.PI*2);
+                ctx.fillStyle   = `hsla(${hue},30%,${lit*0.6}%,0.7)`;
+                ctx.strokeStyle = `hsla(${hue},40%,40%,0.4)`;
+                ctx.lineWidth = 0.4; ctx.fill(); ctx.stroke();
+                if ((tile.crossings||0) > 0) {
+                    ctx.beginPath(); ctx.ellipse(0,0,sz*0.6,sz*0.85,0,0,Math.PI*2);
+                    ctx.strokeStyle = `hsla(${hue},90%,70%,${Math.min(tile.crossings*0.15,0.6)})`;
+                    ctx.lineWidth = 1.2; ctx.stroke();
+                }
+            } else {
+                const faceIn = tile.facing === 1;
+                ctx.fillStyle   = faceIn ? `hsl(${hue},${sat}%,${lit}%)` : `hsl(${hue},30%,${lit*0.5}%)`;
+                ctx.strokeStyle = `hsla(${hue},55%,45%,0.45)`;
+                ctx.lineWidth = 0.35;
+                ctx.fillRect(-sz/2,-sz*0.7,sz,sz*1.4); ctx.strokeRect(-sz/2,-sz*0.7,sz,sz*1.4);
+                if (faceIn) {
+                    ctx.fillStyle = `hsla(${hue},80%,80%,0.6)`;
+                    ctx.beginPath(); ctx.arc(0,0,sz*0.2,0,Math.PI*2); ctx.fill();
+                }
+            }
+            ctx.restore();
+            ctx.beginPath(); ctx.arc(px,py,0.9,0,Math.PI*2);
+            ctx.fillStyle = tile.spin===1 ? "rgba(255,255,255,0.55)" : "rgba(50,50,50,0.35)";
+            ctx.fill();
+        });
+
+        // conic rays
+        for (let i=-3; i<=3; i++) {
+            const a = coneRef.current + i*Math.PI/11;
+            ctx.beginPath(); ctx.moveTo(CX,CY);
+            ctx.lineTo(CX+Math.cos(a)*W*0.52, CY+Math.sin(a)*W*0.21);
+            ctx.strokeStyle = `rgba(255,245,120,${0.018+0.009*(3-Math.abs(i))})`;
+            ctx.lineWidth = 1; ctx.stroke();
+        }
+
+        // world origin ○
+        const pulseR = 6 + Math.sin(frameRef.current*3)*2;
+        const ec = hatched ? "255,200,50" : "255,255,255";
+        for (let ring=5; ring>=0; ring--) {
+            ctx.beginPath(); ctx.ellipse(CX,CY,pulseR+ring*7,(pulseR+ring*7)*1.2,0,0,Math.PI*2);
+            const og = ctx.createRadialGradient(CX,CY,0,CX,CY,pulseR+ring*9);
+            og.addColorStop(0,   `rgba(${ec},${0.9 -ring*0.13})`);
+            og.addColorStop(0.3, `rgba(${ec},${0.25-ring*0.04})`);
+            og.addColorStop(1,   "transparent");
+            ctx.fillStyle = og; ctx.fill();
+        }
+        if (hatched) {
+            ctx.font = "16px serif"; ctx.textAlign = "center";
+            ctx.fillText("🪿", CX, CY+6); ctx.textAlign = "left";
+        }
+
+        // squid registry bar
+        const sq = SQUID_REGISTRY.find(s => s.id === activeSquid);
+        if (sq) {
+            ctx.fillStyle = `hsla(${sq.hue},60%,10%,0.88)`;
+            ctx.beginPath(); roundRect(ctx,12,H-52,W-24,40,6); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = `hsl(${sq.hue},70%,60%)`; ctx.font = "bold 11px monospace";
+            ctx.fillText(`} SQUID::${sq.id} { ${sq.label}`, 20, H-34);
+            ctx.fillStyle = `hsla(${sq.hue},50%,50%,0.7)`; ctx.font = "10px monospace";
+            ctx.fillText(`// ${sq.desc}`, 20, H-18);
+        }
+
+        // lasso overlay
+        const lpts = lassoRef.current.points;
+        if (lpts.length > 1) {
+            ctx.beginPath(); ctx.moveTo(lpts[0].x, lpts[0].y);
+            lpts.forEach(pt => ctx.lineTo(pt.x, pt.y)); ctx.closePath();
+            ctx.strokeStyle = "rgba(150,255,150,0.7)"; ctx.lineWidth = 1.5;
+            ctx.setLineDash([4,3]); ctx.stroke();
+            ctx.fillStyle = "rgba(150,255,150,0.06)"; ctx.fill();
+            ctx.setLineDash([]);
+        }
+        const selIds = new Set(lassoRef.current.selected);
+        if (selIds.size > 0) {
+            tiles.forEach(t => {
+                if (!selIds.has(`${t.s}-${t.r}-${t.i}`)) return;
+                const {px,py} = getTilePos(t);
+                ctx.beginPath(); ctx.arc(px,py,9,0,Math.PI*2);
+                ctx.strokeStyle = "rgba(150,255,150,0.6)"; ctx.lineWidth = 1.2; ctx.stroke();
+            });
+        }
+
+        // stats
+        ctx.fillStyle = "rgba(255,255,255,0.07)"; ctx.font = "10px monospace";
+        ctx.fillText(
+            `PROJECT ZOOTER A.alpha.2  M=${stats.M}  T=${p.temp.toFixed(2)}  crossings=${stats.crossings}  ${hatched?"🪿 HATCHED":"egg gestating"}`,
+            12, 16
+        );
+    }
+
+    // ── animation loop ──
+    useEffect(() => {
+        let af, last = 0;
+        const loop = ts => {
+            if (runRef.current && ts - last > 24) {
+                stepIsing();
+                coneRef.current   += 0.006;
+                frameRef.current  += 0.016 * pRef.current.speed;
+                if ((frameRef.current*60|0) % 10 === 0) {
+                    const M = tilesRef.current.reduce((a,t) => a+t.spin, 0) / tilesRef.current.length;
+                    setStats({ M:M.toFixed(3), crossings:hatchRef.current, hatched:hatchRef.current>=9 });
+                }
+                draw();
+                last = ts;
+            }
+            af = requestAnimationFrame(loop);
+        };
+        af = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(af);
+    }, []);
+
+    // ── lasso ──
+    const handleMouseDown = e => {
+        if (!e.shiftKey) return; e.preventDefault();
+        const r = canvasRef.current.getBoundingClientRect();
+        lassoRef.current = { active:true, points:[{ x:(e.clientX-r.left)*(W/r.width), y:(e.clientY-r.top)*(H/r.height) }], selected:[] };
+    };
+    const handleMouseMove = e => {
+        if (!lassoRef.current.active) return;
+        const r = canvasRef.current.getBoundingClientRect();
+        lassoRef.current.points.push({ x:(e.clientX-r.left)*(W/r.width), y:(e.clientY-r.top)*(H/r.height) });
+    };
+    const handleMouseUp = e => {
+        if (!lassoRef.current.active) return;
+        lassoRef.current.active = false;
+        const pts = lassoRef.current.points;
+        if (pts.length < 3) { lassoRef.current.points = []; return; }
+        const captured = tilesRef.current.filter(t => { const pos=getTilePos(t); return inLasso(pos.px,pos.py,pts); });
+        lassoRef.current.selected = captured.map(t => `${t.s}-${t.r}-${t.i}`);
+        setLassoSelected([...lassoRef.current.selected]);
+        lassoRef.current.points = [];
+    };
+    const applyLasso = op => {
+        const ids = new Set(lassoRef.current.selected);
+        tilesRef.current.forEach(t => {
+            if (!ids.has(`${t.s}-${t.r}-${t.i}`)) return;
+            if (op === "promote") t.s = Math.min(SHELLS-1, t.s+1);
+            if (op === "toro")    t.toroDir *= -1;
+        });
+        lassoRef.current.selected = []; setLassoSelected([]);
+    };
+
+    // ── UI helpers ──
+    const Sl = ({k,min,max,step,col,label}) => (
+        <div className="sl">
+            <span>{label}:</span>
+            <input type="range" min={min} max={max} step={step} value={params[k]}
+                onChange={e => up(k, parseFloat(e.target.value))} />
+            <output style={{color:col}}>{typeof params[k]==="number" ? params[k].toFixed(2) : params[k]}</output>
+        </div>
+    );
+    const Ck = ({k,label}) => (
+        <label className="ck">
+            <input type="checkbox" checked={params[k]} onChange={e => up(k, e.target.checked)} />
+            {label}
+        </label>
+    );
+    const Btn = ({onClick,col,children}) => (
+        <button className="btn" onClick={onClick}
+            style={{background:col+"22", color:col, border:`1px solid ${col}`}}>
+            {children}
+        </button>
+    );
+
+    return (
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:"100%",maxWidth:W}}>
+            <div style={{marginBottom:2,letterSpacing:6,color:"#9775fa",fontSize:17}}>{"🦑 PROJECT ZOOTER"}</div>
+            <div style={{fontSize:9,color:"#333",marginBottom:2,letterSpacing:2}}>{"JSON i2c LENR · github.com/dickdangle · GPL-3.0 · A.alpha.2"}</div>
+            <div style={{fontSize:9,color:"#222",marginBottom:8,letterSpacing:1}}>{"GENESIS SQUID · WORLD ORIGIN · ○ · SESSION_X"}</div>
+
+            <div className="row" style={{marginBottom:8}}>
+                {SQUID_REGISTRY.map(sq => (
+                    <button key={sq.id} onClick={() => setActiveSquid(sq.id)}
+                        style={{background:activeSquid===sq.id?`hsla(${sq.hue},40%,15%,0.9)`:"#080008",
+                            color:activeSquid===sq.id?`hsl(${sq.hue},70%,60%)`:`hsla(${sq.hue},40%,35%,1)`,
+                            border:`1px solid hsla(${sq.hue},40%,${activeSquid===sq.id?35:15}%,1)`,
+                            borderRadius:4,padding:"4px 10px",cursor:"pointer",fontSize:10}}>
+                        {sq.id}·{sq.label}
+                    </button>
+                ))}
+            </div>
+
+            <canvas ref={canvasRef} width={W} height={H} style={{width:"100%"}}
+                onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} />
+
+            {lassoSelected.length > 0 && (
+                <div className="row" style={{marginTop:6}}>
+                    <span style={{fontSize:11,color:"#9775fa"}}>{"lasso: "}{lassoSelected.length}{" tiles"}</span>
+                    <Btn onClick={()=>applyLasso("promote")} col="#4dabf7">{"↑ promote shell"}</Btn>
+                    <Btn onClick={()=>applyLasso("toro")}    col="#ffa94d">{"⟳ flip toroDir"}</Btn>
+                    <Btn onClick={()=>{lassoRef.current.selected=[];setLassoSelected([]);}} col="#555">{"✕"}</Btn>
+                </div>
+            )}
+
+            <div className="row" style={{marginTop:5}}>
+                {SHELL_HUES.map((hue,s) => (
+                    <button key={s} onClick={() => setSelectedShell(selectedShell===s?null:s)}
+                        style={{background:selectedShell===s?`hsla(${hue},50%,15%,0.9)`:"transparent",
+                            color:`hsl(${hue},65%,${selectedShell===s?65:32}%)`,
+                            border:`1px solid hsla(${hue},50%,${selectedShell===s?35:12}%,1)`,
+                            borderRadius:4,padding:"3px 7px",cursor:"pointer",fontSize:9}}>
+                        {SHELL_NAMES[s]}·{SHELL_NOTES[s]}
+                    </button>
+                ))}
+            </div>
+
+            <div className="row" style={{marginTop:8}}>
+                <button onClick={()=>{runRef.current=!runRef.current;setRunning(r=>!r);}}
+                    style={{background:running?"#1a3a1a":"#3a1a1a",color:running?"#69db7c":"#ff6b6b",
+                        border:`1px solid ${running?"#69db7c":"#ff6b6b"}`,borderRadius:4,padding:"4px 12px",cursor:"pointer",fontSize:13}}>
+                    {running?"⏸":"▶"}
+                </button>
+                <Sl k="temp"       min={0.1}  max={5}    step={0.05}  col="#ffd43b" label="T" />
+                <Sl k="toroidalB"  min={0}    max={0.05} step={0.001} col="#4dabf7" label="B±" />
+                <Sl k="speed"      min={0}    max={3}    step={0.05}  col="#69db7c" label="spd" />
+                <Sl k="amplitude"  min={0}    max={40}   step={1}     col="#f783ac" label="wave" />
+                <Sl k="tilt"       min={0.2}  max={0.9}  step={0.01}  col="#f783ac" label="tilt" />
+                <Sl k="mu"         min={0}    max={1}    step={0.01}  col="#ffa94d" label="μ" />
+                <Sl k="sigma"      min={0}    max={1}    step={0.01}  col="#ff6b6b" label="σ" />
+                <Sl k="sinewDepth" min={1}    max={3}    step={1}     col="#63e6be" label="sinew" />
+                <Ck k="gravity"       label="grav" />
+                <Ck k="sinews"        label="sinews" />
+                <Ck k="ghosts"        label="👻" />
+                <Ck k="interpenetrate" label="∿" />
+                <Ck k="resonance"     label="♪ resonance" />
+                <Btn onClick={()=>{tilesRef.current=makeTiles();hatchRef.current=0;}} col="#4dabf7">{"⟳"}</Btn>
+            </div>
+
+            <div style={{marginTop:6,fontSize:10,color:"#2a2a2a"}} className="row">
+                {"M="}<span style={{color:"#ffd43b"}}>{stats.M}</span>
+                {"  crossings="}<span style={{color:"#69db7c"}}>{stats.crossings}</span>
+                {"  hatch@9  tiles="}<span style={{color:"#4dabf7"}}>{SHELLS*RINGS*TPR}</span>
+                {"  tarot~66%  egg~34%"}
+            </div>
+            <div style={{marginTop:6,fontSize:9,color:"#111",textAlign:"center",lineHeight:2,letterSpacing:1}}>
+                {"// The toroid does not need to be told to exist."}
+            </div>
+        </div>
+    );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<GenesisSquid />);
+</script>
+</body>
+</html>

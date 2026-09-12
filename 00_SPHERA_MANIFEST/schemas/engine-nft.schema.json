@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sphera.local/schemas/engine-nft.schema.json",
+  "title": "Sphera Engine NFT Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record_type", "schema_version", "nft_id", "ruleset", "resources", "engine_spec", "accepted_state_schema_versions", "revision", "provenance"],
+  "properties": {
+    "record_type": {"const": "sphera.engine-nft"},
+    "schema_version": {"const": "1.0.0"},
+    "nft_id": {"$ref": "#/$defs/nftId"},
+    "ruleset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"}
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_book_uri", "player_guide_uri"],
+      "properties": {
+        "rule_book_uri": {"type": "string", "format": "uri"},
+        "player_guide_uri": {"type": "string", "format": "uri"}
+      }
+    },
+    "engine_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uri", "sha256"],
+      "properties": {
+        "uri": {"type": "string", "format": "uri"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "accepted_state_schema_versions": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"}
+    },
+    "revision": {"type": "integer", "const": 1},
+    "provenance": {"$ref": "#/$defs/provenance"}
+  },
+  "$defs": {
+    "nftId": {
+      "type": "object", "additionalProperties": false,
+      "required": ["chain_id", "contract", "token_id"],
+      "properties": {
+        "chain_id": {"type": "string", "pattern": "^[a-z0-9]+:[A-Za-z0-9_-]+$"},
+        "contract": {"type": "string", "minLength": 1},
+        "token_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["created_at", "created_by", "source_uri", "source_sha256"],
+      "properties": {
+        "created_at": {"type": "string", "format": "date-time"},
+        "created_by": {"type": "string", "minLength": 1},
+        "source_uri": {"type": "string", "format": "uri"},
+        "source_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

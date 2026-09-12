@@ -1,0 +1,2933 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SM7 Goose Cube Workbook</title>
+    <style>
+      :root {
+        --bg: linear-gradient(180deg, #f2ebd8 0%, #d9c7a1 100%);
+        --panel: rgba(255, 251, 243, 0.92);
+        --panel-strong: rgba(255, 255, 255, 0.95);
+        --panel-soft: rgba(255, 255, 255, 0.45);
+        --ink: #2c312f;
+        --muted: #6a6d63;
+        --border: rgba(55, 53, 42, 0.18);
+        --border-strong: rgba(55, 53, 42, 0.28);
+        --accent: #8c6d3a;
+        --accent-soft: #dbc79d;
+        --focus: #5d8b79;
+        --shadow: 0 22px 68px rgba(71, 54, 20, 0.16);
+        --font-mono: Consolas, "Cascadia Code", "IBM Plex Mono", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .page-shell {
+        min-height: 100vh;
+        padding: 18px;
+      }
+
+      .app-shell {
+        max-width: 1540px;
+        margin: 0 auto;
+        padding: 18px;
+        border-radius: 28px;
+        border: 1px solid var(--border);
+        background:
+          radial-gradient(circle at top right, rgba(140, 109, 58, 0.12), transparent 30%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0)),
+          var(--panel);
+        box-shadow: var(--shadow);
+        outline: none;
+      }
+
+      .app-shell:focus-visible {
+        box-shadow: var(--shadow), 0 0 0 3px rgba(93, 139, 121, 0.28);
+      }
+
+      .topbar,
+      .meta-strip,
+      .sheet-strip,
+      .control-strip,
+      .detail-list {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .eyebrow,
+      .panel-label {
+        margin: 0 0 6px;
+        color: var(--muted);
+        font-size: 0.75rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      .hero-copy {
+        margin-top: 8px;
+        color: #575d5b;
+        max-width: 54ch;
+      }
+
+      .top-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        padding: 9px 13px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--panel-soft);
+        color: var(--ink);
+        transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        border-color: var(--border-strong);
+      }
+
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid rgba(93, 139, 121, 0.42);
+        outline-offset: 2px;
+      }
+
+      button.active {
+        background: rgba(140, 109, 58, 0.18);
+      }
+
+      .meta-strip {
+        margin-top: 16px;
+      }
+
+      .meta-pill {
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.4);
+        color: #4e5552;
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 16px;
+        margin-top: 16px;
+      }
+
+      .formula-bar,
+      .grid-shell,
+      .control-strip,
+      .info-card {
+        border-radius: 22px;
+      }
+
+      .formula-bar {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 10px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.46);
+        border: 1px solid var(--border);
+      }
+
+      .coord-pill,
+      .value-pill {
+        min-width: 90px;
+        padding: 10px 12px;
+        border-radius: 999px;
+        text-align: center;
+        background: var(--accent-soft);
+        font-family: var(--font-mono);
+        font-weight: 700;
+      }
+
+      .value-pill {
+        min-width: 112px;
+        background: rgba(93, 139, 121, 0.18);
+        color: #2f5144;
+      }
+
+      #formulaInput,
+      #jumpInput {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--panel-strong);
+        color: var(--ink);
+        font-family: var(--font-mono);
+      }
+
+      #formulaInput {
+        width: 100%;
+        padding: 10px 12px;
+      }
+
+      .sheet-strip {
+        margin-top: 12px;
+      }
+
+      .transport-bar,
+      .transport-meta,
+      .transport-controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .transport-bar {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.44);
+        justify-content: space-between;
+      }
+
+      .transport-controls {
+        flex: 1;
+        justify-content: flex-end;
+      }
+
+      #sheetSlider {
+        flex: 1 1 260px;
+        min-width: 180px;
+      }
+
+      .view-tabs {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+
+      .view-btn {
+        border-radius: 16px;
+        font-family: var(--font-mono);
+      }
+
+      .view-btn.current {
+        background: rgba(93, 139, 121, 0.18);
+        border-color: rgba(93, 139, 121, 0.46);
+        color: #234438;
+        font-weight: 700;
+      }
+
+      .view-panel {
+        display: none;
+      }
+
+      .view-panel.current {
+        display: block;
+      }
+
+      .sheet-buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .sheet-buttons button {
+        min-width: 44px;
+        padding-inline: 10px;
+        border-radius: 14px;
+        font-family: var(--font-mono);
+      }
+
+      .sheet-buttons button.current {
+        background: rgba(93, 139, 121, 0.18);
+        border-color: rgba(93, 139, 121, 0.46);
+        color: #234438;
+        font-weight: 700;
+      }
+
+      .jump-form {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        color: var(--muted);
+      }
+
+      #jumpInput {
+        width: 86px;
+        padding: 9px 12px;
+      }
+
+      .grid-shell {
+        margin-top: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.58);
+      }
+
+      .grid-wrap {
+        overflow: auto;
+      }
+
+      .sheet-grid {
+        width: max-content;
+        border-collapse: collapse;
+        font-family: var(--font-mono);
+        background: rgba(255, 253, 247, 0.95);
+      }
+
+      .sheet-grid th,
+      .sheet-grid td {
+        width: 18px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0;
+        text-align: center;
+        border-bottom: 1px solid rgba(43, 48, 47, 0.06);
+        border-right: 1px solid rgba(43, 48, 47, 0.06);
+      }
+
+      .sheet-grid thead th,
+      .sheet-grid .row-head {
+        background: #f7f0df;
+        color: #7f745e;
+        font-size: 0.64rem;
+        font-weight: 600;
+        position: sticky;
+        z-index: 1;
+      }
+
+      .sheet-grid thead th {
+        top: 0;
+      }
+
+      .sheet-grid .row-head {
+        left: 0;
+        min-width: 46px;
+        width: 46px;
+        padding-inline: 8px;
+        text-align: right;
+        z-index: 2;
+      }
+
+      .sheet-grid td {
+        color: #565b57;
+        font-size: 0.72rem;
+        user-select: none;
+      }
+
+      .sheet-grid td.empty {
+        color: transparent;
+      }
+
+      .sheet-grid td.seeded {
+        background: rgba(93, 139, 121, 0.05);
+      }
+
+      .sheet-grid td.formula-cell {
+        box-shadow: inset 0 0 0 1px rgba(140, 109, 58, 0.24);
+      }
+
+      .sheet-grid td.selected {
+        background: #4d3316;
+        color: #f9e2ad;
+        outline: 1px solid #cfa85f;
+        outline-offset: -1px;
+      }
+
+      .control-strip {
+        margin-top: 12px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.42);
+        border: 1px solid var(--border);
+      }
+
+      .control-strip label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        color: #4f5551;
+      }
+
+      .control-strip span,
+      .shortcut-note {
+        color: #5c625f;
+      }
+
+      .shortcut-note {
+        font-size: 0.85rem;
+      }
+
+      input[type="range"] {
+        accent-color: var(--focus);
+      }
+
+      .canvas-shell {
+        margin-top: 12px;
+        padding: 14px;
+        border-radius: 22px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.42);
+      }
+
+      .canvas-controls {
+        margin-top: 12px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .mode-pills {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .mode-pill {
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.52);
+        color: var(--ink);
+      }
+
+      .mode-pill.current {
+        background: rgba(93, 139, 121, 0.18);
+        border-color: rgba(93, 139, 121, 0.46);
+        color: #234438;
+        font-weight: 700;
+      }
+
+      .mini-control {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 10px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.48);
+        color: #535a57;
+        font-size: 0.84rem;
+      }
+
+      .mini-control input[type="range"] {
+        width: 110px;
+      }
+
+      .canvas-meta {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .canvas-meta p {
+        color: #59605d;
+      }
+
+      .canvas-frame {
+        margin-top: 12px;
+        padding: 10px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: #0d1420;
+        overflow: auto;
+      }
+
+      .canvas-frame canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 12px;
+      }
+
+      .canvas-note {
+        margin-top: 12px;
+        color: #57605a;
+        line-height: 1.5;
+      }
+
+      .world-shell {
+        margin-top: 12px;
+        padding: 14px;
+        border-radius: 22px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.42);
+      }
+
+      .world-toolbar,
+      .world-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .world-toolbar {
+        grid-template-columns: repeat(4, minmax(0, auto));
+        justify-content: start;
+      }
+
+      .world-grid {
+        margin-top: 12px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .world-card {
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.48);
+      }
+
+      .seed-list,
+      .garden-grid {
+        margin-top: 10px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .seed-row,
+      .plot {
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.55);
+      }
+
+      .seed-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .seed-meta,
+      .plot .meta,
+      .pond-card .meta {
+        color: #616763;
+        font-size: 0.82rem;
+      }
+
+      .garden-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .plot.empty {
+        opacity: 0.72;
+      }
+
+      .pond-card {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .pond-ripple {
+        min-height: 72px;
+        display: grid;
+        place-items: center;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(31, 58, 86, 0.94), rgba(14, 28, 44, 0.98));
+        color: #d5ebff;
+        font-family: var(--font-mono);
+        font-size: 1.2rem;
+        letter-spacing: 0.28em;
+      }
+
+      .info-card {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.52);
+        padding: 16px;
+      }
+
+      .goose-name {
+        margin-bottom: 12px;
+      }
+
+      .goose-ascii {
+        margin: 14px 0;
+        padding: 14px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.58);
+        border: 1px solid var(--border);
+        color: #234438;
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        line-height: 1.2;
+      }
+
+      .detail-list {
+        justify-content: flex-start;
+        gap: 10px;
+      }
+
+      .detail-pill {
+        padding: 8px 10px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.44);
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+      }
+
+      .legend {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .legend-item {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 10px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.44);
+        font-size: 0.84rem;
+      }
+
+      .legend-chip {
+        min-width: 20px;
+        text-align: center;
+        font-family: var(--font-mono);
+        font-weight: 700;
+      }
+
+      .note-block {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.44);
+        color: #57605a;
+        line-height: 1.5;
+      }
+
+      .note-block code {
+        font-family: var(--font-mono);
+      }
+
+      @media (max-width: 1120px) {
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .world-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .formula-bar {
+          grid-template-columns: 1fr;
+        }
+
+        .coord-pill,
+        .value-pill {
+          min-width: 0;
+        }
+
+        .sheet-grid th,
+        .sheet-grid td {
+          width: 16px;
+          min-width: 16px;
+          height: 16px;
+          font-size: 0.66rem;
+        }
+
+        .sheet-grid .row-head {
+          min-width: 40px;
+          width: 40px;
+        }
+
+        .world-toolbar {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="app-shell" id="appShell" tabindex="0" aria-label="SM7 Goose Cube Workbook">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">SM7 - 64 SHEETS - CSV WORKBOOK</p>
+            <h1>Goose Cube Workbook</h1>
+            <p class="hero-copy">
+              A single-file spreadsheet view over a deterministic 64 x 246 x 246 density cube.
+              Each tab is one depth slice, and CSV import replaces the current sheet with a blank-base sheet.
+            </p>
+          </div>
+          <div class="top-actions">
+            <button id="driftBtn" type="button">Drift Current Sheet</button>
+            <button id="exportCsvBtn" type="button">Export CSV</button>
+            <button id="importCsvBtn" type="button">Import CSV</button>
+            <button id="resetSheetBtn" type="button">Reset Sheet</button>
+            <button id="resetAllBtn" type="button">Reset All</button>
+          </div>
+        </header>
+
+        <section class="meta-strip">
+          <span class="meta-pill" id="sheetReadout">sheet: 1 / 64</span>
+          <span class="meta-pill" id="baseReadout">base: seed</span>
+          <span class="meta-pill" id="workbookReadout">workbook: --</span>
+          <span class="meta-pill" id="editReadout">edits: 0</span>
+          <span class="meta-pill" id="modeReadout">display: 24 x 40</span>
+        </section>
+
+        <section class="workspace">
+          <section class="grid-panel">
+            <section class="formula-bar">
+              <label class="coord-pill" id="cellCoord" for="formulaInput">A1</label>
+              <input
+                id="formulaInput"
+                type="text"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder="Single char or formula like =S2.A1"
+              />
+              <div class="value-pill" id="cellDisplay">raw: @</div>
+            </section>
+
+            <section class="view-tabs" aria-label="Workbook views">
+              <button class="view-btn current" id="sheetViewBtn" type="button" data-workbook-view="sheet">Sheet</button>
+              <button class="view-btn" id="voxelViewBtn" type="button" data-workbook-view="voxel">Voxel</button>
+              <button class="view-btn" id="threadViewBtn" type="button" data-workbook-view="thread">Thread</button>
+              <button class="view-btn" id="worldViewBtn" type="button" data-workbook-view="world">World</button>
+            </section>
+
+            <section class="sheet-strip">
+              <div id="sheetButtons" class="sheet-buttons" aria-label="Sheet buttons"></div>
+              <form id="jumpForm" class="jump-form">
+                <label for="jumpInput">Go to</label>
+                <input id="jumpInput" type="number" min="1" max="64" inputmode="numeric" />
+              </form>
+            </section>
+
+            <section class="transport-bar">
+              <div class="transport-meta">
+                <span class="detail-pill" id="activeSliceMeta">active: S1</span>
+                <span class="detail-pill" id="quidReadout">quid: quiet</span>
+                <span class="detail-pill" id="pondReadout">pond: still</span>
+              </div>
+              <div class="transport-controls">
+                <button id="prevSheetBtn" type="button">Prev</button>
+                <button id="playBtn" type="button">Play</button>
+                <button id="nextSheetBtn" type="button">Next</button>
+                <input id="sheetSlider" type="range" min="0" max="63" value="0" />
+              </div>
+            </section>
+
+            <section class="view-panel current" id="sheetPanel">
+              <section class="grid-shell">
+                <div class="grid-wrap">
+                  <table id="sheetGrid" class="sheet-grid"></table>
+                </div>
+              </section>
+
+              <section class="control-strip">
+                <label>
+                  <span>Row</span>
+                  <input id="rowScroll" type="range" min="0" max="222" value="0" />
+                </label>
+                <label>
+                  <span>Col</span>
+                  <input id="colScroll" type="range" min="0" max="206" value="0" />
+                </label>
+                <span id="scrollReadout">r0 c0</span>
+                <span class="shortcut-note">Arrows move. Enter edits. Page Up and Page Down switch sheets.</span>
+              </section>
+            </section>
+
+            <section class="view-panel" id="voxelPanel">
+              <section class="canvas-shell">
+                <div class="canvas-meta">
+                  <div>
+                    <p class="panel-label">Voxel View</p>
+                    <p>Box-framed voxel inspector for the active workbook, built to read edits instead of hiding them.</p>
+                  </div>
+                  <span class="detail-pill" id="voxelStats">voxels: --</span>
+                </div>
+                <div class="canvas-controls">
+                  <div class="mode-pills" aria-label="Voxel inspection mode">
+                    <button class="mode-pill current" type="button" data-voxel-mode="all">Cube</button>
+                    <button class="mode-pill" type="button" data-voxel-mode="sheet">Sheet</button>
+                    <button class="mode-pill" type="button" data-voxel-mode="cursor">Cursor</button>
+                    <button class="mode-pill" type="button" data-voxel-mode="edits">Edits</button>
+                  </div>
+                  <label class="mini-control" for="voxelDepth">
+                    <span>Depth</span>
+                    <input id="voxelDepth" type="range" min="0" max="8" value="2" />
+                    <span id="voxelDepthReadout">2</span>
+                  </label>
+                  <label class="mini-control" for="voxelRadius">
+                    <span>Radius</span>
+                    <input id="voxelRadius" type="range" min="8" max="96" step="4" value="28" />
+                    <span id="voxelRadiusReadout">28</span>
+                  </label>
+                  <label class="mini-control" for="voxelDensity">
+                    <span>Floor</span>
+                    <input id="voxelDensity" type="range" min="0" max="10" value="4" />
+                    <span id="voxelDensityReadout">4</span>
+                  </label>
+                  <label class="mini-control" for="voxelYaw">
+                    <span>Yaw</span>
+                    <input id="voxelYaw" type="range" min="-90" max="90" value="26" />
+                    <span id="voxelYawReadout">26</span>
+                  </label>
+                </div>
+                <div class="canvas-frame">
+                  <canvas id="voxelCanvas" width="920" height="500"></canvas>
+                </div>
+                <p class="canvas-note" id="voxelNote">
+                  Use the focus controls to inspect the current cell, current sheet, or just your edits without the globe wrapper.
+                </p>
+              </section>
+            </section>
+
+            <section class="view-panel" id="threadPanel">
+              <section class="canvas-shell">
+                <div class="canvas-meta">
+                  <div>
+                    <p class="panel-label">Thread View</p>
+                    <p>Read the workbook as a depth-thread instead of a flat stack.</p>
+                  </div>
+                  <span class="detail-pill" id="threadStats">thread: --</span>
+                </div>
+                <div class="canvas-frame">
+                  <canvas id="threadCanvas" width="920" height="260"></canvas>
+                </div>
+                <p class="canvas-note" id="threadNote">
+                  Each point is one sheet summary, with the active slice pinned and the denser center given more weight.
+                </p>
+              </section>
+            </section>
+
+            <section class="view-panel" id="worldPanel">
+              <section class="world-shell">
+                <div class="canvas-meta">
+                  <div>
+                    <p class="panel-label">World View</p>
+                    <p>Djinn seed jars, a little garden, and a pond tied back to the active workbook state.</p>
+                  </div>
+                  <span class="detail-pill" id="worldStats">world: idle</span>
+                </div>
+
+                <div class="world-toolbar">
+                  <button id="honkBtn" type="button">Honk</button>
+                  <button id="toodleBtn" type="button">Toodle Pond</button>
+                  <button id="plantSeedBtn" type="button">Plant Random Djinn</button>
+                  <button id="clearGardenBtn" type="button">Clear Garden</button>
+                </div>
+
+                <div class="world-grid">
+                  <section class="world-card">
+                    <p class="panel-label">Djinn Seed Jar</p>
+                    <p>Derived from the current workbook signature and active voxel density mix.</p>
+                    <div class="seed-list" id="seedList"></div>
+                  </section>
+
+                  <section class="world-card">
+                    <p class="panel-label">Djinn Garden</p>
+                    <p>Planted Djinn advance as you honk and toodle around the workbook.</p>
+                    <div class="garden-grid" id="gardenGrid"></div>
+                  </section>
+
+                  <section class="world-card pond-card">
+                    <div>
+                      <p class="panel-label">Pond</p>
+                      <p>Ripples track the workbook mood and the active sheet.</p>
+                    </div>
+                    <div class="pond-ripple" id="pondRipple">' O ,</div>
+                    <div class="meta" id="pondStateText">State: still</div>
+                    <div class="meta" id="eggStateText">Egg: warm and waiting</div>
+                    <div class="meta" id="worldNote">No seeds planted yet.</div>
+                  </section>
+                </div>
+              </section>
+            </section>
+          </section>
+
+          <aside class="info-panel">
+            <section class="info-card">
+              <p class="panel-label">Companion</p>
+              <h2 class="goose-name" id="gooseName">Workbook Goose</h2>
+              <pre class="goose-ascii" id="gooseAscii" aria-label="ASCII goose">   __
+  (oo)
+ /(  )_
+  ^^ ^^</pre>
+              <div class="detail-list">
+                <span class="detail-pill" id="selectionReadout">selected: A1</span>
+                <span class="detail-pill" id="resolvedReadout">resolved: @</span>
+                <span class="detail-pill" id="windowReadout">window: r1-r24 cA-AN</span>
+              </div>
+
+              <div class="legend" id="legend"></div>
+
+              <div class="note-block" id="noteBlock">
+                CSV is a one-sheet format, so this file behaves like a workbook: 64 tabs in the browser,
+                plus import and export for the active sheet. Imported sheets use a blank base. Seeded sheets
+                lazily generate values until you edit them.
+              </div>
+            </section>
+          </aside>
+        </section>
+      </section>
+    </main>
+
+    <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden />
+
+    <script>
+      const SHEETS = 64;
+      const ROWS = 246;
+      const COLS = 246;
+      const VISIBLE_ROWS = 24;
+      const VISIBLE_COLS = 40;
+      const STORAGE_KEYS = ["sm7-goose-cube-workbook-v2", "sm7-goose-cube-workbook-v1"];
+      const PRIMARY_STORAGE_KEY = STORAGE_KEYS[0];
+      const EMPTY_OVERRIDE = "__BLANK__";
+      const SEED = 42;
+      const SM7 = " .,:;!?\\'\\\"-/+=*#@%&_()abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      const SM7_SET = new Set(SM7);
+      const DENSITY = ["@", "#", "%", "&", "*", "+", "=", "-", ".", ",", " "];
+      const DENSITY_COLORS = {
+        "@": "#b74a3b",
+        "#": "#cc7f2a",
+        "%": "#8a6730",
+        "&": "#3e8c63",
+        "*": "#3d79b0",
+        "+": "#6e94bf",
+        "=": "#8564a7",
+        "-": "#607076",
+        ".": "#7f7b72",
+        ",": "#989286",
+      };
+      const DJINN_FAMILIES = [
+        {
+          type: "fire",
+          label: "Fire Djinn",
+          chars: ["@", "#"],
+          defaultChar: "@",
+          color: "#ff7444",
+          stages: ["EMBER", "FLARE", "BLAZE", "PHOENIX"],
+          pond: "steam-lit",
+        },
+        {
+          type: "water",
+          label: "Water Djinn",
+          chars: ["*", "+"],
+          defaultChar: "*",
+          color: "#57a7ff",
+          stages: ["DROP", "RIPPLE", "TIDE", "STORM"],
+          pond: "tidal",
+        },
+        {
+          type: "earth",
+          label: "Earth Djinn",
+          chars: ["%", "&"],
+          defaultChar: "%",
+          color: "#76c46b",
+          stages: ["SEED", "ROOT", "GROVE", "STONE"],
+          pond: "reed-bound",
+        },
+        {
+          type: "air",
+          label: "Air Djinn",
+          chars: ["=", "-", ".", ","],
+          defaultChar: "=",
+          color: "#f2ce8c",
+          stages: ["MOTE", "GUST", "GLIDE", "AETHER"],
+          pond: "wind-bright",
+        },
+      ];
+      const GOOSE_VARIANTS = [
+        ["   __", "  (oo)", " /(  )_", "  ^^ ^^"],
+        ["   __", "  (oo)", " /(  )", "  mm mm"],
+        ["   __", "  (oo)", " /(  )__", "  vv vv"],
+        ["   __", "  (oo)", " /(  )", "  :: ::"],
+      ];
+
+      const ui = {
+        appShell: document.querySelector("#appShell"),
+        driftBtn: document.querySelector("#driftBtn"),
+        exportCsvBtn: document.querySelector("#exportCsvBtn"),
+        importCsvBtn: document.querySelector("#importCsvBtn"),
+        resetSheetBtn: document.querySelector("#resetSheetBtn"),
+        resetAllBtn: document.querySelector("#resetAllBtn"),
+        sheetReadout: document.querySelector("#sheetReadout"),
+        baseReadout: document.querySelector("#baseReadout"),
+        workbookReadout: document.querySelector("#workbookReadout"),
+        editReadout: document.querySelector("#editReadout"),
+        modeReadout: document.querySelector("#modeReadout"),
+        cellCoord: document.querySelector("#cellCoord"),
+        formulaInput: document.querySelector("#formulaInput"),
+        cellDisplay: document.querySelector("#cellDisplay"),
+        viewButtons: Array.from(document.querySelectorAll("[data-workbook-view]")),
+        sheetPanel: document.querySelector("#sheetPanel"),
+        voxelPanel: document.querySelector("#voxelPanel"),
+        threadPanel: document.querySelector("#threadPanel"),
+        worldPanel: document.querySelector("#worldPanel"),
+        sheetButtons: document.querySelector("#sheetButtons"),
+        jumpForm: document.querySelector("#jumpForm"),
+        jumpInput: document.querySelector("#jumpInput"),
+        activeSliceMeta: document.querySelector("#activeSliceMeta"),
+        quidReadout: document.querySelector("#quidReadout"),
+        pondReadout: document.querySelector("#pondReadout"),
+        prevSheetBtn: document.querySelector("#prevSheetBtn"),
+        playBtn: document.querySelector("#playBtn"),
+        nextSheetBtn: document.querySelector("#nextSheetBtn"),
+        sheetSlider: document.querySelector("#sheetSlider"),
+        sheetGrid: document.querySelector("#sheetGrid"),
+        rowScroll: document.querySelector("#rowScroll"),
+        colScroll: document.querySelector("#colScroll"),
+        scrollReadout: document.querySelector("#scrollReadout"),
+        voxelCanvas: document.querySelector("#voxelCanvas"),
+        voxelStats: document.querySelector("#voxelStats"),
+        voxelNote: document.querySelector("#voxelNote"),
+        voxelModeButtons: Array.from(document.querySelectorAll("[data-voxel-mode]")),
+        voxelDepth: document.querySelector("#voxelDepth"),
+        voxelDepthReadout: document.querySelector("#voxelDepthReadout"),
+        voxelRadius: document.querySelector("#voxelRadius"),
+        voxelRadiusReadout: document.querySelector("#voxelRadiusReadout"),
+        voxelDensity: document.querySelector("#voxelDensity"),
+        voxelDensityReadout: document.querySelector("#voxelDensityReadout"),
+        voxelYaw: document.querySelector("#voxelYaw"),
+        voxelYawReadout: document.querySelector("#voxelYawReadout"),
+        threadCanvas: document.querySelector("#threadCanvas"),
+        threadStats: document.querySelector("#threadStats"),
+        threadNote: document.querySelector("#threadNote"),
+        worldStats: document.querySelector("#worldStats"),
+        honkBtn: document.querySelector("#honkBtn"),
+        toodleBtn: document.querySelector("#toodleBtn"),
+        plantSeedBtn: document.querySelector("#plantSeedBtn"),
+        clearGardenBtn: document.querySelector("#clearGardenBtn"),
+        seedList: document.querySelector("#seedList"),
+        gardenGrid: document.querySelector("#gardenGrid"),
+        pondRipple: document.querySelector("#pondRipple"),
+        pondStateText: document.querySelector("#pondStateText"),
+        eggStateText: document.querySelector("#eggStateText"),
+        worldNote: document.querySelector("#worldNote"),
+        gooseName: document.querySelector("#gooseName"),
+        gooseAscii: document.querySelector("#gooseAscii"),
+        selectionReadout: document.querySelector("#selectionReadout"),
+        resolvedReadout: document.querySelector("#resolvedReadout"),
+        windowReadout: document.querySelector("#windowReadout"),
+        noteBlock: document.querySelector("#noteBlock"),
+        legend: document.querySelector("#legend"),
+        csvFileInput: document.querySelector("#csvFileInput"),
+      };
+
+      let saveTimer = 0;
+      let playTimer = 0;
+      let storageWarned = false;
+      let state = loadState() ?? createDefaultState();
+
+      buildLegend();
+      bindEvents();
+      bootstrapApp();
+
+      function bindEvents() {
+        ui.driftBtn.addEventListener("click", () => {
+          applyDriftToCurrentSheet();
+          renderAll();
+          scheduleSave();
+        });
+
+        ui.exportCsvBtn.addEventListener("click", exportCurrentSheetAsCsv);
+        ui.importCsvBtn.addEventListener("click", () => ui.csvFileInput.click());
+
+        ui.csvFileInput.addEventListener("change", async (event) => {
+          const [file] = event.target.files ?? [];
+          event.target.value = "";
+          if (!file) {
+            return;
+          }
+          const text = await file.text();
+          importCsvIntoCurrentSheet(text);
+          state.editMode = false;
+          state.formula = "";
+          renderAll();
+          scheduleSave();
+        });
+
+        ui.resetSheetBtn.addEventListener("click", () => {
+          resetCurrentSheet();
+          renderAll();
+          scheduleSave();
+        });
+
+        ui.resetAllBtn.addEventListener("click", () => {
+          if (!window.confirm("Reset all 64 sheets back to the seeded cube?")) {
+            return;
+          }
+          clearPlayTimer();
+          const fresh = createDefaultState();
+          Object.assign(state, fresh);
+          renderAll();
+          scheduleSave();
+        });
+
+        ui.formulaInput.addEventListener("focus", () => {
+          if (!state.editMode) {
+            startEdit(getRawCell(state.cur, state.selR, state.selC));
+          }
+        });
+
+        ui.formulaInput.addEventListener("input", (event) => {
+          state.formula = event.target.value;
+        });
+
+        ui.formulaInput.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commitFormula();
+            ui.appShell.focus();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            cancelEdit();
+            ui.appShell.focus();
+          }
+          event.stopPropagation();
+        });
+
+        ui.formulaInput.addEventListener("blur", () => {
+          if (state.editMode) {
+            commitFormula();
+          }
+        });
+
+        ui.sheetButtons.addEventListener("click", (event) => {
+          const button = event.target.closest("button[data-sheet]");
+          if (!button) {
+            return;
+          }
+          state.cur = Number.parseInt(button.dataset.sheet, 10);
+          ensureSelectionVisible();
+          renderAll();
+          scheduleSave();
+          ui.appShell.focus();
+        });
+
+        ui.prevSheetBtn.addEventListener("click", () => {
+          setSheet(state.cur - 1);
+        });
+
+        ui.nextSheetBtn.addEventListener("click", () => {
+          setSheet(state.cur + 1);
+        });
+
+        ui.playBtn.addEventListener("click", togglePlay);
+
+        ui.sheetSlider.addEventListener("input", (event) => {
+          setSheet(Number(event.target.value));
+        });
+
+        ui.viewButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            state.view = button.dataset.workbookView;
+            renderAll();
+            scheduleSave();
+            ui.appShell.focus();
+          });
+        });
+
+        ui.voxelModeButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            state.voxelMode = button.dataset.voxelMode;
+            state.view = "voxel";
+            renderAll();
+            scheduleSave();
+            ui.appShell.focus();
+          });
+        });
+
+        ui.jumpForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const target = Number.parseInt(ui.jumpInput.value, 10);
+          if (Number.isNaN(target) || target < 1 || target > SHEETS) {
+            return;
+          }
+          state.cur = target - 1;
+          ui.jumpInput.value = "";
+          ensureSelectionVisible();
+          renderAll();
+          scheduleSave();
+          ui.appShell.focus();
+        });
+
+        ui.sheetGrid.addEventListener("click", (event) => {
+          const cell = event.target.closest("td[data-r][data-c]");
+          if (!cell) {
+            return;
+          }
+          state.selR = Number.parseInt(cell.dataset.r, 10);
+          state.selC = Number.parseInt(cell.dataset.c, 10);
+          ensureSelectionVisible();
+          renderAll();
+          ui.appShell.focus();
+        });
+
+        ui.rowScroll.addEventListener("input", (event) => {
+          state.scrollR = Number.parseInt(event.target.value, 10);
+          renderGrid();
+          renderStatus();
+          scheduleSave();
+        });
+
+        ui.colScroll.addEventListener("input", (event) => {
+          state.scrollC = Number.parseInt(event.target.value, 10);
+          renderGrid();
+          renderStatus();
+          scheduleSave();
+        });
+
+        ui.voxelDepth.addEventListener("input", (event) => {
+          state.voxelDepth = Number.parseInt(event.target.value, 10);
+          state.view = "voxel";
+          renderAll();
+          scheduleSave();
+        });
+
+        ui.voxelRadius.addEventListener("input", (event) => {
+          state.voxelRadius = Number.parseInt(event.target.value, 10);
+          state.view = "voxel";
+          renderAll();
+          scheduleSave();
+        });
+
+        ui.voxelDensity.addEventListener("input", (event) => {
+          state.voxelDensityFloor = Number.parseInt(event.target.value, 10);
+          state.view = "voxel";
+          renderAll();
+          scheduleSave();
+        });
+
+        ui.voxelYaw.addEventListener("input", (event) => {
+          state.voxelYaw = Number.parseInt(event.target.value, 10);
+          state.view = "voxel";
+          renderAll();
+          scheduleSave();
+        });
+
+        ui.honkBtn.addEventListener("click", () => {
+          honk();
+        });
+
+        ui.toodleBtn.addEventListener("click", () => {
+          toodle();
+        });
+
+        ui.plantSeedBtn.addEventListener("click", () => {
+          plantRandomSeed();
+        });
+
+        ui.clearGardenBtn.addEventListener("click", () => {
+          state.garden = Array.from({ length: 6 }, () => null);
+          renderAll();
+          scheduleSave();
+        });
+
+        window.addEventListener("keydown", handleKeyDown);
+      }
+
+      function withLocalStorage(callback, fallbackValue = null) {
+        try {
+          return callback(window.localStorage);
+        } catch (error) {
+          if (!storageWarned) {
+            console.warn("Workbook storage unavailable:", error);
+            storageWarned = true;
+          }
+          return fallbackValue;
+        }
+      }
+
+      function clearStoredWorkbookState() {
+        STORAGE_KEYS.forEach((key) => {
+          withLocalStorage((storage) => {
+            storage.removeItem(key);
+          });
+        });
+      }
+
+      function bootstrapApp() {
+        try {
+          renderAll();
+        } catch (error) {
+          console.warn("Workbook boot failed, resetting stored state:", error);
+          clearStoredWorkbookState();
+          state = createDefaultState();
+          renderAll();
+        }
+        window.requestAnimationFrame(() => ui.appShell.focus());
+      }
+
+      function createDefaultState() {
+        return {
+          sheets: Array.from({ length: SHEETS }, () => createSheetRecord("seed")),
+          view: "sheet",
+          cur: 0,
+          selR: 0,
+          selC: 0,
+          scrollR: 0,
+          scrollC: 0,
+          voxelMode: "all",
+          voxelDepth: 2,
+          voxelRadius: 28,
+          voxelDensityFloor: 4,
+          voxelYaw: 26,
+          honks: 0,
+          toodles: 0,
+          recursion: 1,
+          pond: "still",
+          garden: Array.from({ length: 6 }, () => null),
+          formula: "",
+          editMode: false,
+          playing: false,
+        };
+      }
+
+      function createSheetRecord(base) {
+        return {
+          base,
+          cells: new Map(),
+        };
+      }
+
+      function loadState() {
+        try {
+          let raw = null;
+          let sourceKey = PRIMARY_STORAGE_KEY;
+          STORAGE_KEYS.some((key) => {
+            const stored = withLocalStorage((storage) => storage.getItem(key), null);
+            if (!stored) {
+              return false;
+            }
+            raw = stored;
+            sourceKey = key;
+            return true;
+          });
+          if (!raw) {
+            return null;
+          }
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed.sheets) || parsed.sheets.length !== SHEETS) {
+            return null;
+          }
+          const legacyState = sourceKey !== PRIMARY_STORAGE_KEY;
+          return {
+            sheets: parsed.sheets.map((sheet) => ({
+              base: sheet && sheet.base === "blank" ? "blank" : "seed",
+              cells: new Map(Object.entries(sheet && sheet.cells ? sheet.cells : {})),
+            })),
+            view:
+              !legacyState && (parsed.view === "voxel" || parsed.view === "thread" || parsed.view === "world")
+                ? parsed.view
+                : "sheet",
+            cur: clamp(parsed.cur, 0, SHEETS - 1),
+            selR: clamp(parsed.selR, 0, ROWS - 1),
+            selC: clamp(parsed.selC, 0, COLS - 1),
+            scrollR: clamp(parsed.scrollR, 0, ROWS - VISIBLE_ROWS),
+            scrollC: clamp(parsed.scrollC, 0, COLS - VISIBLE_COLS),
+            voxelMode:
+              parsed.voxelMode === "sheet" || parsed.voxelMode === "cursor" || parsed.voxelMode === "edits"
+                ? parsed.voxelMode
+                : "all",
+            voxelDepth: Number.isFinite(parsed.voxelDepth) ? clamp(parsed.voxelDepth, 0, 8) : 2,
+            voxelRadius: Number.isFinite(parsed.voxelRadius) ? clamp(parsed.voxelRadius, 8, 96) : 28,
+            voxelDensityFloor: Number.isFinite(parsed.voxelDensityFloor) ? clamp(parsed.voxelDensityFloor, 0, 10) : 4,
+            voxelYaw: Number.isFinite(parsed.voxelYaw) ? clamp(parsed.voxelYaw, -90, 90) : 26,
+            honks: Number.isFinite(parsed.honks) ? parsed.honks : 0,
+            toodles: Number.isFinite(parsed.toodles) ? parsed.toodles : 0,
+            recursion: Number.isFinite(parsed.recursion) ? parsed.recursion : 1,
+            pond: typeof parsed.pond === "string" ? parsed.pond : "still",
+            garden: !legacyState && Array.isArray(parsed.garden)
+              ? parsed.garden.slice(0, 6).concat(Array.from({ length: Math.max(0, 6 - parsed.garden.length) }, () => null))
+              : Array.from({ length: 6 }, () => null),
+            formula: "",
+            editMode: false,
+            playing: false,
+          };
+        } catch (error) {
+          console.warn("Could not load workbook state:", error);
+          return null;
+        }
+      }
+
+      function scheduleSave() {
+        window.clearTimeout(saveTimer);
+        saveTimer = window.setTimeout(() => {
+          const snapshot = {
+            sheets: state.sheets.map((sheet) => ({
+              base: sheet.base,
+              cells: Object.fromEntries(sheet.cells.entries()),
+            })),
+            view: state.view,
+            cur: state.cur,
+            selR: state.selR,
+            selC: state.selC,
+            scrollR: state.scrollR,
+            scrollC: state.scrollC,
+            voxelMode: state.voxelMode,
+            voxelDepth: state.voxelDepth,
+            voxelRadius: state.voxelRadius,
+            voxelDensityFloor: state.voxelDensityFloor,
+            voxelYaw: state.voxelYaw,
+            honks: state.honks,
+            toodles: state.toodles,
+            recursion: state.recursion,
+            pond: state.pond,
+            garden: state.garden,
+          };
+          withLocalStorage((storage) => {
+            storage.setItem(PRIMARY_STORAGE_KEY, JSON.stringify(snapshot));
+            STORAGE_KEYS.slice(1).forEach((key) => storage.removeItem(key));
+          });
+        }, 120);
+      }
+
+      function clamp(value, min, max) {
+        if (typeof value !== "number" || Number.isNaN(value)) {
+          return min;
+        }
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function createCellKey(row, col) {
+        return row + "," + col;
+      }
+
+      function normalizeCellValue(value) {
+        if (typeof value !== "string") {
+          return " ";
+        }
+        const clean = value.replace(/\r/g, "");
+        if (clean.trim() === "") {
+          return " ";
+        }
+        if (clean.startsWith("=")) {
+          return clean.trim() || " ";
+        }
+        for (const char of clean) {
+          if (SM7_SET.has(char) && char !== " ") {
+            return char;
+          }
+        }
+        return " ";
+      }
+
+      function seededScalarIndex(sheetIndex, row, col, seed = SEED) {
+        let value =
+          Math.sin(sheetIndex * 0.137 + seed) * 173.4 +
+          Math.cos(row * 0.093) * 87.2 +
+          Math.sin(col * 0.071) * 51.7 +
+          Math.sin((sheetIndex * 19 + row * 31 + col * 73) * 0.007);
+        value = value - Math.floor(value);
+        return Math.floor(value * DENSITY.length);
+      }
+
+      function seededChar(sheetIndex, row, col) {
+        return DENSITY[Math.min(DENSITY.length - 1, seededScalarIndex(sheetIndex, row, col))];
+      }
+
+      function isInBounds(sheetIndex, row, col) {
+        return sheetIndex >= 0 && sheetIndex < SHEETS && row >= 0 && row < ROWS && col >= 0 && col < COLS;
+      }
+
+      function getRawCell(sheetIndex, row, col, sheets = state.sheets) {
+        if (!isInBounds(sheetIndex, row, col)) {
+          return " ";
+        }
+        const sheet = sheets[sheetIndex];
+        const key = createCellKey(row, col);
+        if (sheet.cells.has(key)) {
+          const stored = sheet.cells.get(key);
+          return stored === EMPTY_OVERRIDE ? " " : stored;
+        }
+        return sheet.base === "seed" ? seededChar(sheetIndex, row, col) : " ";
+      }
+
+      function isSeededCell(sheetIndex, row, col) {
+        return !state.sheets[sheetIndex].cells.has(createCellKey(row, col)) && state.sheets[sheetIndex].base === "seed";
+      }
+
+      function setRawCell(sheetIndex, row, col, value, sheets = state.sheets) {
+        if (!isInBounds(sheetIndex, row, col)) {
+          return;
+        }
+        const sheet = sheets[sheetIndex];
+        const key = createCellKey(row, col);
+        const normalized = normalizeCellValue(value);
+        if (normalized === " ") {
+          if (sheet.base === "seed") {
+            sheet.cells.set(key, EMPTY_OVERRIDE);
+          } else {
+            sheet.cells.delete(key);
+          }
+          return;
+        }
+        sheet.cells.set(key, normalized);
+      }
+
+      function parseRef(expr, sheetIndex) {
+        const full = expr.match(/^=S(\d+)\.([A-Z]+)(\d+)$/i);
+        if (full) {
+          return {
+            s: Number.parseInt(full[1], 10) - 1,
+            c: lettersToColumn(full[2]),
+            r: Number.parseInt(full[3], 10) - 1,
+          };
+        }
+        const local = expr.match(/^=([A-Z]+)(\d+)$/i);
+        if (local) {
+          return {
+            s: sheetIndex,
+            c: lettersToColumn(local[1]),
+            r: Number.parseInt(local[2], 10) - 1,
+          };
+        }
+        return null;
+      }
+
+      function lettersToColumn(letters) {
+        return letters
+          .toUpperCase()
+          .split("")
+          .reduce((sum, char) => sum * 26 + char.charCodeAt(0) - 64, 0) - 1;
+      }
+
+      function colLabel(col) {
+        let out = "";
+        let value = col + 1;
+        while (value > 0) {
+          const mod = (value - 1) % 26;
+          out = String.fromCharCode(65 + mod) + out;
+          value = Math.floor((value - 1) / 26);
+        }
+        return out;
+      }
+
+      function resolveCell(sheetIndex, row, col, visited = new Set(), sheets = state.sheets) {
+        const id = sheetIndex + "," + row + "," + col;
+        if (visited.has(id)) {
+          return "!";
+        }
+        visited.add(id);
+        if (!isInBounds(sheetIndex, row, col)) {
+          return "?";
+        }
+        const value = getRawCell(sheetIndex, row, col, sheets);
+        if (typeof value === "string" && value.startsWith("=")) {
+          const ref = parseRef(value, sheetIndex);
+          return ref ? resolveCell(ref.s, ref.r, ref.c, visited, sheets) : "?";
+        }
+        return value;
+      }
+
+      function displayChar(sheetIndex, row, col, sheets = state.sheets) {
+        const value = getRawCell(sheetIndex, row, col, sheets);
+        return typeof value === "string" && value.startsWith("=")
+          ? resolveCell(sheetIndex, row, col, new Set(), sheets)
+          : value;
+      }
+
+      function ensureSelectionVisible() {
+        if (state.selR < state.scrollR) {
+          state.scrollR = state.selR;
+        } else if (state.selR >= state.scrollR + VISIBLE_ROWS) {
+          state.scrollR = state.selR - VISIBLE_ROWS + 1;
+        }
+        if (state.selC < state.scrollC) {
+          state.scrollC = state.selC;
+        } else if (state.selC >= state.scrollC + VISIBLE_COLS) {
+          state.scrollC = state.selC - VISIBLE_COLS + 1;
+        }
+      }
+
+      function setSheet(value) {
+        state.cur = clamp(value, 0, SHEETS - 1);
+        ensureSelectionVisible();
+        renderAll();
+        scheduleSave();
+      }
+
+      function clearPlayTimer() {
+        if (playTimer) {
+          window.clearInterval(playTimer);
+          playTimer = 0;
+        }
+      }
+
+      function togglePlay() {
+        state.playing = !state.playing;
+        clearPlayTimer();
+        if (state.playing) {
+          playTimer = window.setInterval(() => {
+            state.cur = (state.cur + 1) % SHEETS;
+            ensureSelectionVisible();
+            renderAll();
+          }, 180);
+        }
+        renderStatus();
+        scheduleSave();
+      }
+
+      function cyclePond(next) {
+        const states = ["still", "ringing", "lapping", "drifting"];
+        if (next) {
+          state.pond = next;
+          return;
+        }
+        const currentIndex = states.indexOf(state.pond);
+        state.pond = states[(currentIndex + 1 + states.length) % states.length];
+      }
+
+      function honk() {
+        state.honks += 1;
+        state.recursion += 1;
+        cyclePond("ringing");
+        applyDriftToCurrentSheet();
+        renderAll();
+        scheduleSave();
+      }
+
+      function toodle() {
+        state.toodles += 1;
+        cyclePond();
+        state.cur = (state.cur + 1) % SHEETS;
+        ensureSelectionVisible();
+        renderAll();
+        scheduleSave();
+      }
+
+      function handleKeyDown(event) {
+        if (event.ctrlKey || event.metaKey || event.altKey) {
+          return;
+        }
+        const active = document.activeElement;
+        if (active === ui.jumpInput) {
+          return;
+        }
+        const moves = {
+          ArrowUp: [-1, 0],
+          ArrowDown: [1, 0],
+          ArrowLeft: [0, -1],
+          ArrowRight: [0, 1],
+        };
+
+        if (!state.editMode && moves[event.key]) {
+          event.preventDefault();
+          state.selR = clamp(state.selR + moves[event.key][0], 0, ROWS - 1);
+          state.selC = clamp(state.selC + moves[event.key][1], 0, COLS - 1);
+          ensureSelectionVisible();
+          renderAll();
+          scheduleSave();
+          return;
+        }
+
+        if (!state.editMode && event.key === "PageUp") {
+          event.preventDefault();
+          state.cur = clamp(state.cur - 1, 0, SHEETS - 1);
+          ensureSelectionVisible();
+          renderAll();
+          scheduleSave();
+          return;
+        }
+
+        if (!state.editMode && event.key === "PageDown") {
+          event.preventDefault();
+          state.cur = clamp(state.cur + 1, 0, SHEETS - 1);
+          ensureSelectionVisible();
+          renderAll();
+          scheduleSave();
+          return;
+        }
+
+        if (!state.editMode && (event.key === "Delete" || event.key === "Backspace")) {
+          event.preventDefault();
+          setRawCell(state.cur, state.selR, state.selC, " ");
+          renderAll();
+          scheduleSave();
+          return;
+        }
+
+        if (!state.editMode && (event.key === "Enter" || event.key === "F2")) {
+          event.preventDefault();
+          startEdit(getRawCell(state.cur, state.selR, state.selC));
+          return;
+        }
+
+        if (!state.editMode && event.key === "=") {
+          event.preventDefault();
+          startEdit("=");
+          return;
+        }
+
+        if (!state.editMode && event.key === "1") {
+          event.preventDefault();
+          state.view = "sheet";
+          renderAll();
+          scheduleSave();
+          return;
+        }
+
+        if (!state.editMode && event.key === "2") {
+          event.preventDefault();
+          state.view = "voxel";
+          renderAll();
+          scheduleSave();
+          return;
+        }
+
+        if (!state.editMode && event.key === "3") {
+          event.preventDefault();
+          state.view = "thread";
+          renderAll();
+          scheduleSave();
+          return;
+        }
+
+        if (!state.editMode && event.key === "4") {
+          event.preventDefault();
+          state.view = "world";
+          renderAll();
+          scheduleSave();
+          return;
+        }
+
+        if (!state.editMode && event.key.length === 1 && SM7_SET.has(event.key) && event.key !== " ") {
+          event.preventDefault();
+          setRawCell(state.cur, state.selR, state.selC, event.key);
+          renderAll();
+          scheduleSave();
+        }
+      }
+
+      function startEdit(initialValue) {
+        state.editMode = true;
+        state.formula = initialValue === " " ? "" : initialValue;
+        renderFormulaBar();
+        window.requestAnimationFrame(() => {
+          ui.formulaInput.focus();
+          ui.formulaInput.select();
+        });
+      }
+
+      function cancelEdit() {
+        state.editMode = false;
+        state.formula = "";
+        renderFormulaBar();
+      }
+
+      function commitFormula() {
+        setRawCell(state.cur, state.selR, state.selC, state.formula);
+        state.editMode = false;
+        state.formula = "";
+        renderAll();
+        scheduleSave();
+      }
+
+      function exportCurrentSheetAsCsv() {
+        const lines = [];
+        for (let row = 0; row < ROWS; row += 1) {
+          const values = [];
+          for (let col = 0; col < COLS; col += 1) {
+            const raw = getRawCell(state.cur, row, col);
+            const safe = raw === " " ? "" : /^[=+\-@]/.test(raw) ? "'" + raw : raw;
+            values.push(escapeCsv(safe));
+          }
+          lines.push(values.join(","));
+        }
+        const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "sm7-sheet-" + String(state.cur + 1).padStart(2, "0") + ".csv";
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function importCsvIntoCurrentSheet(csvText) {
+        const rows = parseCsv(csvText);
+        const replacement = createSheetRecord("blank");
+        rows.slice(0, ROWS).forEach((row, rowIndex) => {
+          row.slice(0, COLS).forEach((value, colIndex) => {
+            let nextValue = value ?? "";
+            if (nextValue.length > 1 && nextValue.startsWith("'") && /^[=+\-@]/.test(nextValue[1])) {
+              nextValue = nextValue.slice(1);
+            }
+            const normalized = normalizeCellValue(nextValue);
+            if (normalized !== " ") {
+              replacement.cells.set(createCellKey(rowIndex, colIndex), normalized);
+            }
+          });
+        });
+        state.sheets[state.cur] = replacement;
+      }
+
+      function parseCsv(csvText) {
+        const rows = [];
+        let row = [];
+        let field = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < csvText.length; i += 1) {
+          const char = csvText[i];
+          if (inQuotes) {
+            if (char === "\"") {
+              if (csvText[i + 1] === "\"") {
+                field += "\"";
+                i += 1;
+              } else {
+                inQuotes = false;
+              }
+            } else {
+              field += char;
+            }
+            continue;
+          }
+
+          if (char === "\"") {
+            inQuotes = true;
+          } else if (char === ",") {
+            row.push(field);
+            field = "";
+          } else if (char === "\n") {
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = "";
+          } else if (char !== "\r") {
+            field += char;
+          }
+        }
+
+        row.push(field);
+        rows.push(row);
+        if (rows.length && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === "") {
+          rows.pop();
+        }
+        return rows;
+      }
+
+      function escapeCsv(value) {
+        const text = String(value);
+        if (/[",\n]/.test(text)) {
+          return "\"" + text.replace(/"/g, "\"\"") + "\"";
+        }
+        return text;
+      }
+
+      function resetCurrentSheet() {
+        state.sheets[state.cur] = createSheetRecord("seed");
+        state.editMode = false;
+        state.formula = "";
+      }
+
+      function applyDriftToCurrentSheet() {
+        const next = createSheetRecord("blank");
+
+        for (let row = 0; row < ROWS; row += 1) {
+          for (let col = 0; col < COLS; col += 1) {
+            const raw = getRawCell(state.cur, row, col);
+
+            if (typeof raw === "string" && raw.startsWith("=")) {
+              next.cells.set(createCellKey(row, col), raw);
+              continue;
+            }
+
+            const densityIndex = DENSITY.indexOf(raw);
+            if (densityIndex < 0) {
+              if (raw !== " ") {
+                next.cells.set(createCellKey(row, col), raw);
+              }
+              continue;
+            }
+
+            const neighbors = [
+              getRawCell(state.cur, (row - 1 + ROWS) % ROWS, col),
+              getRawCell(state.cur, (row + 1) % ROWS, col),
+              getRawCell(state.cur, row, (col - 1 + COLS) % COLS),
+              getRawCell(state.cur, row, (col + 1) % COLS),
+            ];
+
+            const neighborSum = neighbors.reduce((sum, neighbor) => {
+              const neighborIndex = DENSITY.indexOf(neighbor);
+              return sum + (neighborIndex >= 0 ? 5 - neighborIndex : 0);
+            }, 0);
+
+            const spin = densityIndex < 5 ? 1 : -1;
+            const delta = spin * neighborSum;
+            const nextIndex =
+              delta < 0 || Math.random() < Math.exp(-delta * 0.3)
+                ? clamp(densityIndex + (Math.random() < 0.5 ? 1 : -1), 0, DENSITY.length - 1)
+                : densityIndex;
+            const nextChar = DENSITY[nextIndex];
+
+            if (nextChar !== " ") {
+              next.cells.set(createCellKey(row, col), nextChar);
+            }
+          }
+        }
+
+        state.sheets[state.cur] = next;
+      }
+
+      function getMetrics() {
+        let editedCells = 0;
+        let customSheets = 0;
+        let formulaCells = 0;
+
+        state.sheets.forEach((sheet) => {
+          if (sheet.base === "blank" || sheet.cells.size > 0) {
+            customSheets += 1;
+          }
+          editedCells += sheet.cells.size;
+          sheet.cells.forEach((value) => {
+            if (typeof value === "string" && value.startsWith("=")) {
+              formulaCells += 1;
+            }
+          });
+        });
+
+        return {
+          editedCells,
+          customSheets,
+          formulaCells,
+        };
+      }
+
+      function computeWorkbookId(metrics) {
+        const chunks = [];
+        state.sheets.forEach((sheet, sheetIndex) => {
+          chunks.push("b" + sheetIndex + ":" + sheet.base);
+          const ordered = Array.from(sheet.cells.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+          ordered.forEach(([key, value]) => {
+            chunks.push(sheetIndex + ":" + key + ":" + value);
+          });
+        });
+        const hash = hashText(chunks.join("|") || "seed");
+        return hash + "-" + metrics.customSheets.toString(16).padStart(2, "0");
+      }
+
+      function hashText(text) {
+        let hash = 2166136261;
+        for (let i = 0; i < text.length; i += 1) {
+          hash ^= text.charCodeAt(i);
+          hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0).toString(16).padStart(8, "0");
+      }
+
+      function buildLegend() {
+        ui.legend.innerHTML = DENSITY.filter((char) => char !== " ")
+          .map((char) => {
+            const color = DENSITY_COLORS[char] || "#555";
+            return (
+              "<div class=\"legend-item\"><span class=\"legend-chip\" style=\"color:" +
+              color +
+              "\">" +
+              escapeHtml(char) +
+              "</span><span>" +
+              escapeHtml(describeDensityChar(char)) +
+              "</span></div>"
+            );
+          })
+          .join("");
+      }
+
+      function describeDensityChar(char) {
+        const labels = {
+          "@": "dense core",
+          "#": "magma",
+          "%": "earth",
+          "&": "wood",
+          "*": "water",
+          "+": "air",
+          "=": "aether",
+          "-": "fade",
+          ".": "trace",
+          ",": "mist",
+        };
+        return labels[char] || "density";
+      }
+
+      function renderViewState() {
+        ui.viewButtons.forEach((button) => {
+          button.classList.toggle("current", button.dataset.workbookView === state.view);
+        });
+        ui.voxelModeButtons.forEach((button) => {
+          button.classList.toggle("current", button.dataset.voxelMode === state.voxelMode);
+        });
+        ui.sheetPanel.classList.toggle("current", state.view === "sheet");
+        ui.voxelPanel.classList.toggle("current", state.view === "voxel");
+        ui.threadPanel.classList.toggle("current", state.view === "thread");
+        ui.worldPanel.classList.toggle("current", state.view === "world");
+      }
+
+      function densityStrength(char, raw = char) {
+        if (typeof raw === "string" && raw.startsWith("=")) {
+          return 10;
+        }
+        if (char === " ") {
+          return 0;
+        }
+        const densityIndex = DENSITY.indexOf(char);
+        if (densityIndex >= 0) {
+          return DENSITY.length - densityIndex;
+        }
+        if (/[A-Z0-9]/.test(char)) {
+          return 8;
+        }
+        if (/[a-z]/.test(char)) {
+          return 7;
+        }
+        return 6;
+      }
+
+      function getVoxelColor(char, raw) {
+        if (typeof raw === "string" && raw.startsWith("=")) {
+          return "#66a5ff";
+        }
+        if (DENSITY_COLORS[char]) {
+          return DENSITY_COLORS[char];
+        }
+        const glyphIndex = SM7.indexOf(char);
+        const hue = glyphIndex >= 0 ? Math.floor((glyphIndex / SM7.length) * 360) : 0;
+        const light = /[A-Z0-9]/.test(char) ? 68 : /[a-z]/.test(char) ? 58 : 76;
+        return "hsl(" + hue + " 72% " + light + "%)";
+      }
+
+      function drawVoxelGrid(ctx, centerX, centerY, width, height) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(242, 206, 140, 0.14)";
+        ctx.lineWidth = 1;
+        for (let index = -5; index <= 5; index += 1) {
+          ctx.beginPath();
+          ctx.moveTo(centerX - width * 0.18, centerY + index * 18);
+          ctx.lineTo(centerX + width * 0.18, centerY + index * 18);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(centerX - width * 0.2, centerY);
+        ctx.lineTo(centerX + width * 0.2, centerY);
+        ctx.strokeStyle = "rgba(242, 206, 140, 0.24)";
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function buildVoxelSnapshot(options = {}) {
+        const mode = options.modeOverride || state.voxelMode;
+        const densityFloor = Number.isFinite(options.densityFloor) ? options.densityFloor : state.voxelDensityFloor;
+        const maxPoints = Number.isFinite(options.maxPoints) ? options.maxPoints : 2400;
+        const summaries = Array.from({ length: SHEETS }, (_, z) => ({
+          z,
+          count: 0,
+          activeCount: 0,
+          denseSum: 0,
+          xSum: 0,
+          ySum: 0,
+          topChar: " ",
+          topCount: 0,
+          charCounts: {},
+        }));
+        const points = [];
+        const seen = new Set();
+        const depth = state.voxelDepth;
+        const radius = state.voxelRadius;
+        const editCells = [];
+
+        state.sheets.forEach((sheet, z) => {
+          sheet.cells.forEach((value, key) => {
+            const [rowText, colText] = key.split(",");
+            editCells.push({
+              z,
+              row: Number.parseInt(rowText, 10),
+              col: Number.parseInt(colText, 10),
+              value,
+            });
+          });
+        });
+
+        let zMin = 0;
+        let zMax = SHEETS - 1;
+        let rowMin = 0;
+        let rowMax = ROWS - 1;
+        let colMin = 0;
+        let colMax = COLS - 1;
+
+        if (mode === "sheet") {
+          zMin = clamp(state.cur - depth, 0, SHEETS - 1);
+          zMax = clamp(state.cur + depth, 0, SHEETS - 1);
+        } else if (mode === "cursor") {
+          zMin = clamp(state.cur - depth, 0, SHEETS - 1);
+          zMax = clamp(state.cur + depth, 0, SHEETS - 1);
+          rowMin = clamp(state.selR - radius, 0, ROWS - 1);
+          rowMax = clamp(state.selR + radius, 0, ROWS - 1);
+          colMin = clamp(state.selC - radius, 0, COLS - 1);
+          colMax = clamp(state.selC + radius, 0, COLS - 1);
+        } else if (mode === "edits" && editCells.length) {
+          let localEdits = editCells.filter((cell) => Math.abs(cell.z - state.cur) <= Math.max(1, depth));
+          if (!localEdits.length) {
+            localEdits = editCells;
+          }
+          const pad = Math.max(6, Math.floor(radius / 2));
+          zMin = clamp(Math.min(...localEdits.map((cell) => cell.z)) - depth, 0, SHEETS - 1);
+          zMax = clamp(Math.max(...localEdits.map((cell) => cell.z)) + depth, 0, SHEETS - 1);
+          rowMin = clamp(Math.min(...localEdits.map((cell) => cell.row)) - pad, 0, ROWS - 1);
+          rowMax = clamp(Math.max(...localEdits.map((cell) => cell.row)) + pad, 0, ROWS - 1);
+          colMin = clamp(Math.min(...localEdits.map((cell) => cell.col)) - pad, 0, COLS - 1);
+          colMax = clamp(Math.max(...localEdits.map((cell) => cell.col)) + pad, 0, COLS - 1);
+        }
+
+        const sheetCount = zMax - zMin + 1;
+        const rowCount = rowMax - rowMin + 1;
+        const colCount = colMax - colMin + 1;
+        const stride = Math.max(1, Math.ceil(Math.sqrt((sheetCount * rowCount * colCount) / maxPoints)));
+        const originRow = mode === "cursor" ? state.selR : Math.round((rowMin + rowMax) / 2);
+        const originCol = mode === "cursor" ? state.selC : Math.round((colMin + colMax) / 2);
+        const originSheet = zMin <= state.cur && state.cur <= zMax ? state.cur : Math.round((zMin + zMax) / 2);
+
+        function addSummaryPoint(z, row, col, char, active) {
+          if (char === " ") {
+            return;
+          }
+          const summary = summaries[z];
+          summary.count += 1;
+          summary.xSum += col;
+          summary.ySum += row;
+          summary.activeCount += active ? 1 : 0;
+          summary.denseSum += densityStrength(char, char);
+          summary.charCounts[char] = (summary.charCounts[char] || 0) + 1;
+          if (summary.charCounts[char] > summary.topCount) {
+            summary.topCount = summary.charCounts[char];
+            summary.topChar = char;
+          }
+        }
+
+        function maybeAddPoint(z, row, col, raw, forced = false) {
+          const keyId = z + ":" + row + ":" + col;
+          if (seen.has(keyId)) {
+            return;
+          }
+          const blank = raw === EMPTY_OVERRIDE;
+          const char = typeof raw === "string" && raw.startsWith("=") ? displayChar(z, row, col) : blank ? " " : raw;
+          const selected = z === state.cur && row === state.selR && col === state.selC;
+          const edited = !isSeededCell(z, row, col);
+          const strength = densityStrength(char, raw);
+          if (!forced && !selected && !edited && !blank && strength < densityFloor) {
+            return;
+          }
+          seen.add(keyId);
+          if (!blank && char !== " ") {
+            addSummaryPoint(z, row, col, char, z === state.cur);
+          }
+          points.push({
+            x: col,
+            y: row,
+            z,
+            raw,
+            char,
+            strength,
+            edited,
+            blank,
+            selected,
+            active: Math.abs(z - state.cur) <= 1,
+            formula: typeof raw === "string" && raw.startsWith("="),
+            originRow,
+            originCol,
+          });
+        }
+
+        for (let z = zMin; z <= zMax; z += 1) {
+          for (let row = rowMin; row <= rowMax; row += stride) {
+            for (let col = colMin; col <= colMax; col += stride) {
+              const raw = getRawCell(z, row, col);
+              maybeAddPoint(z, row, col, raw, false);
+            }
+          }
+        }
+
+        editCells.forEach((cell) => {
+          if (cell.z < zMin || cell.z > zMax || cell.row < rowMin || cell.row > rowMax || cell.col < colMin || cell.col > colMax) {
+            return;
+          }
+          maybeAddPoint(cell.z, cell.row, cell.col, cell.value, true);
+        });
+
+        maybeAddPoint(state.cur, state.selR, state.selC, getRawCell(state.cur, state.selR, state.selC), true);
+
+        if (points.length > maxPoints) {
+          const keep = [];
+          const step = Math.ceil(points.length / maxPoints);
+          points.forEach((point, index) => {
+            if (point.selected || point.edited || index % step === 0) {
+              keep.push(point);
+            }
+          });
+          keep.sort((a, b) => a.z - b.z || a.y - b.y || a.x - b.x);
+          points.length = 0;
+          keep.forEach((point) => points.push(point));
+        }
+
+        return {
+          mode,
+          densityFloor,
+          points,
+          summaries,
+          origin: {
+            row: originRow,
+            col: originCol,
+            sheet: originSheet,
+          },
+          viewBounds: {
+            minX: colMin,
+            maxX: colMax,
+            minY: rowMin,
+            maxY: rowMax,
+            minZ: zMin,
+            maxZ: zMax,
+          },
+          selectedCell: {
+            x: state.selC,
+            y: state.selR,
+            z: state.cur,
+          },
+          editedVisible: points.filter((point) => point.edited).length,
+          blankEditsVisible: points.filter((point) => point.blank).length,
+        };
+      }
+
+      function renderVoxelCanvas(snapshot) {
+        const canvas = ui.voxelCanvas;
+        const ctx = canvas.getContext("2d");
+        const width = canvas.width;
+        const height = canvas.height;
+        const centerX = width / 2;
+        const centerY = height / 2 + 26;
+
+        ctx.clearRect(0, 0, width, height);
+
+        const background = ctx.createLinearGradient(0, 0, 0, height);
+        background.addColorStop(0, "#11161b");
+        background.addColorStop(1, "#090d11");
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, width, height);
+
+        drawVoxelGrid(ctx, centerX, centerY, width, height);
+
+        const yaw = (state.voxelYaw * Math.PI) / 180;
+        const cos = Math.cos(yaw);
+        const sin = Math.sin(yaw);
+        const bounds = snapshot.viewBounds;
+        const spanX = Math.max(8, bounds.maxX - bounds.minX + 1);
+        const spanY = Math.max(8, bounds.maxY - bounds.minY + 1);
+        const spanZ = Math.max(2, bounds.maxZ - bounds.minZ + 1);
+        const zWeight = Math.max(0.75, Math.min(1.45, 20 / spanZ));
+
+        const projectPoint = (x, y, z) => {
+          const worldX = (x - snapshot.origin.col) / Math.max(1, spanX / 2);
+          const worldY = (snapshot.origin.row - y) / Math.max(1, spanY / 2);
+          const worldZ = ((z - snapshot.origin.sheet) / Math.max(1, spanZ / 2)) * zWeight;
+          const xRot = worldX * cos - worldZ * sin;
+          const zRot = worldX * sin + worldZ * cos;
+          return {
+            px: centerX + xRot * width * 0.28,
+            py: centerY - worldY * height * 0.34 + zRot * height * 0.11,
+            zRot,
+          };
+        };
+
+        const corners = [
+          [bounds.minX, bounds.minY, bounds.minZ],
+          [bounds.maxX, bounds.minY, bounds.minZ],
+          [bounds.maxX, bounds.maxY, bounds.minZ],
+          [bounds.minX, bounds.maxY, bounds.minZ],
+          [bounds.minX, bounds.minY, bounds.maxZ],
+          [bounds.maxX, bounds.minY, bounds.maxZ],
+          [bounds.maxX, bounds.maxY, bounds.maxZ],
+          [bounds.minX, bounds.maxY, bounds.maxZ],
+        ].map(([x, y, z]) => projectPoint(x, y, z));
+
+        const edges = [
+          [0, 1], [1, 2], [2, 3], [3, 0],
+          [4, 5], [5, 6], [6, 7], [7, 4],
+          [0, 4], [1, 5], [2, 6], [3, 7],
+        ];
+        ctx.strokeStyle = "rgba(242, 206, 140, 0.16)";
+        ctx.lineWidth = 1;
+        edges.forEach(([a, b]) => {
+          ctx.beginPath();
+          ctx.moveTo(corners[a].px, corners[a].py);
+          ctx.lineTo(corners[b].px, corners[b].py);
+          ctx.stroke();
+        });
+
+        const projected = snapshot.points
+          .map((point) => {
+            const projectedPoint = projectPoint(point.x, point.y, point.z);
+            const size = clamp(1.4 + point.strength * 0.32 - Math.abs(projectedPoint.zRot) * 0.3, 1.4, point.selected ? 9 : point.edited ? 6.8 : 5.2);
+            return { ...point, ...projectedPoint, size };
+          })
+          .sort((left, right) => left.py - right.py || left.zRot - right.zRot);
+
+        projected.forEach((point) => {
+          if (point.blank) {
+            ctx.strokeStyle = point.selected ? "#ffb075" : "rgba(255, 143, 82, 0.86)";
+            ctx.lineWidth = point.selected ? 2 : 1.4;
+            ctx.beginPath();
+            ctx.moveTo(point.px - 4.5, point.py - 4.5);
+            ctx.lineTo(point.px + 4.5, point.py + 4.5);
+            ctx.moveTo(point.px + 4.5, point.py - 4.5);
+            ctx.lineTo(point.px - 4.5, point.py + 4.5);
+            ctx.stroke();
+            return;
+          }
+          const fill = point.selected ? "#fff4cf" : point.edited ? "#87d3a5" : getVoxelColor(point.char, point.raw);
+          ctx.save();
+          ctx.translate(point.px, point.py);
+          ctx.fillStyle = fill;
+          ctx.shadowBlur = point.selected ? 16 : 8;
+          ctx.shadowColor = point.selected ? "#ffe8a6" : fill;
+          ctx.fillRect(-point.size / 2, -point.size / 2, point.size, point.size);
+          if (point.formula) {
+            ctx.strokeStyle = "#66a5ff";
+            ctx.lineWidth = 1.15;
+            ctx.strokeRect(-point.size / 2 - 1.4, -point.size / 2 - 1.4, point.size + 2.8, point.size + 2.8);
+          }
+          if (point.selected) {
+            ctx.strokeStyle = "#fff4cf";
+            ctx.lineWidth = 1.25;
+            ctx.strokeRect(-point.size / 2 - 2.2, -point.size / 2 - 2.2, point.size + 4.4, point.size + 4.4);
+          }
+          ctx.restore();
+        });
+
+        ctx.fillStyle = "#d3c18e";
+        ctx.font = "12px Consolas, monospace";
+        ctx.fillText("sheet " + (state.cur + 1), 16, 24);
+        ctx.fillText("yaw " + Math.round(state.voxelYaw) + " deg", 16, 40);
+        ctx.fillText("depth +/-" + state.voxelDepth, 16, 56);
+        ctx.fillText("density floor " + snapshot.densityFloor, 16, 72);
+
+        if (!projected.length) {
+          ctx.fillStyle = "#f1e0a7";
+          ctx.font = "16px Segoe UI, sans-serif";
+          ctx.fillText("No voxels above the current floor.", 78, height / 2 - 6);
+          ctx.fillStyle = "#b7c0c4";
+          ctx.font = "12px Consolas, monospace";
+          ctx.fillText("Lower the floor or switch to Cursor or Edits mode.", 60, height / 2 + 18);
+        }
+
+        ui.voxelStats.textContent =
+          projected.length.toLocaleString() +
+          " voxels - " +
+          snapshot.editedVisible.toLocaleString() +
+          " edits";
+        ui.voxelNote.textContent =
+          "Box-framed viewer centered on " +
+          (snapshot.mode === "cursor" ? "the current cell" : snapshot.mode === "edits" ? "the edited region" : snapshot.mode === "sheet" ? "the active sheet" : "the workbook") +
+          ". " +
+          "Green marks edits, blue outlines formulas, orange X marks blank overrides, and cream marks the selected cell.";
+      }
+
+      function renderThreadCanvas(snapshot) {
+        const canvas = ui.threadCanvas;
+        const ctx = canvas.getContext("2d");
+        const width = canvas.width;
+        const height = canvas.height;
+        const padX = 28;
+        const midY = height * 0.54;
+
+        ctx.clearRect(0, 0, width, height);
+        const bg = ctx.createLinearGradient(0, 0, 0, height);
+        bg.addColorStop(0, "#111827");
+        bg.addColorStop(1, "#090c14");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padX, midY);
+        ctx.lineTo(width - padX, midY);
+        ctx.stroke();
+
+        const points = snapshot.summaries.map((summary) => {
+          const x = padX + (summary.z / (SHEETS - 1)) * (width - padX * 2);
+          if (!summary.count) {
+            return { x, y: midY, summary };
+          }
+          const cx = summary.xSum / summary.count;
+          const cy = summary.ySum / summary.count;
+          const nx = (cx - COLS / 2) / Math.max(1, COLS / 2);
+          const ny = (cy - ROWS / 2) / Math.max(1, ROWS / 2);
+          const weight = Math.min(1, summary.denseSum / Math.max(1, summary.count * 9));
+          const wave = Math.sin(summary.z * 0.42 + state.cur * 0.08) * 10;
+          return {
+            x,
+            y: midY + nx * 34 + ny * 44 + wave - weight * 16,
+            summary,
+          };
+        });
+
+        const glow = ctx.createLinearGradient(0, 0, width, 0);
+        glow.addColorStop(0, "rgba(120, 176, 255, 0.25)");
+        glow.addColorStop(0.5, "rgba(255, 209, 102, 0.4)");
+        glow.addColorStop(1, "rgba(120, 176, 255, 0.25)");
+        ctx.strokeStyle = glow;
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        points.forEach((point, index) => {
+          if (index === 0) {
+            ctx.moveTo(point.x, point.y);
+          } else {
+            ctx.lineTo(point.x, point.y);
+          }
+        });
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(255, 244, 214, 0.82)";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        points.forEach((point, index) => {
+          if (index === 0) {
+            ctx.moveTo(point.x, point.y);
+          } else {
+            ctx.lineTo(point.x, point.y);
+          }
+        });
+        ctx.stroke();
+
+        points.forEach((point) => {
+          const active = point.summary.z === state.cur;
+          const radius = active ? 5.8 : point.summary.count > 400 ? 4.2 : 3;
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = active ? "#ffd166" : point.summary.count > 0 ? "rgba(151, 178, 232, 0.74)" : "rgba(92, 104, 128, 0.45)";
+          ctx.fill();
+        });
+
+        const activePoint = points[state.cur];
+        ctx.strokeStyle = "rgba(255, 209, 102, 0.32)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(activePoint.x, 18);
+        ctx.lineTo(activePoint.x, height - 30);
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(255,255,255,0.42)";
+        ctx.font = "10px Consolas, monospace";
+        for (let z = 0; z < SHEETS; z += 8) {
+          const x = padX + (z / (SHEETS - 1)) * (width - padX * 2);
+          ctx.fillText(String(z + 1), x - 6, height - 10);
+        }
+
+        ctx.fillStyle = "rgba(255, 234, 196, 0.75)";
+        ctx.font = "11px Consolas, monospace";
+        ctx.fillText("S" + (state.cur + 1), activePoint.x + 8, activePoint.y - 10);
+
+        const activeSummary = snapshot.summaries[state.cur];
+        ui.threadStats.textContent = "thread: " + activeSummary.count + " sampled";
+        ui.threadNote.textContent =
+          "Sheet " +
+          (state.cur + 1) +
+          " centers around " +
+          colLabel(Math.round(activeSummary.count ? activeSummary.xSum / activeSummary.count : COLS / 2)) +
+          ", top char " +
+          (activeSummary.topChar === " " ? "blank" : activeSummary.topChar) +
+          ".";
+      }
+
+      function computeQuidMix(snapshot) {
+        const neighbors = snapshot.summaries.filter((summary) => Math.abs(summary.z - state.cur) <= 2);
+        if (!neighbors.length) {
+          return { top: "quiet", ratio: 0 };
+        }
+        const totals = {};
+        let total = 0;
+        neighbors.forEach((summary) => {
+          Object.entries(summary.charCounts).forEach(([char, count]) => {
+            totals[char] = (totals[char] || 0) + count;
+            total += count;
+          });
+        });
+        const [topChar = " "] = Object.entries(totals).sort((a, b) => b[1] - a[1])[0] || [];
+        return {
+          top: topChar === " " ? "quiet" : DENSITY.includes(topChar) ? describeDensityChar(topChar) : "glyph " + topChar,
+          ratio: total ? Math.min(1, (totals[topChar] || 0) / total) : 0,
+        };
+      }
+
+      function getDjinnFamily(type) {
+        return DJINN_FAMILIES.find((family) => family.type === type) || null;
+      }
+
+      function deriveSeeds(snapshot) {
+        const sample = snapshot.points
+          .slice(0, 96)
+          .map((point) => point.z + ":" + point.y + ":" + point.x + ":" + point.char)
+          .join("|");
+        const base = hashText(sample + ":" + state.honks + ":" + state.toodles + ":" + state.recursion);
+        const stats = DJINN_FAMILIES.map((family, index) => {
+          const offset = index * 8;
+          const seedSlice = base.slice(offset, offset + 8) || base.slice(0, 8);
+          return {
+            family,
+            seedCode: Number.parseInt(seedSlice, 16) >>> 0,
+            total: 0,
+            active: 0,
+            bestSheet: state.cur,
+            bestSheetCount: 0,
+            topChar: family.defaultChar,
+            topCount: 0,
+          };
+        });
+        const statsByType = Object.fromEntries(stats.map((entry) => [entry.family.type, entry]));
+
+        snapshot.summaries.forEach((summary) => {
+          DJINN_FAMILIES.forEach((family) => {
+            const stat = statsByType[family.type];
+            let sheetTotal = 0;
+            family.chars.forEach((char) => {
+              const count = summary.charCounts[char] || 0;
+              if (!count) {
+                return;
+              }
+              stat.total += count;
+              sheetTotal += count;
+              if (summary.z === state.cur) {
+                stat.active += count;
+              }
+              if (count > stat.topCount) {
+                stat.topCount = count;
+                stat.topChar = char;
+              }
+            });
+            if (sheetTotal > stat.bestSheetCount) {
+              stat.bestSheet = summary.z;
+              stat.bestSheetCount = sheetTotal;
+            }
+          });
+        });
+
+        const maxTotal = Math.max(1, ...stats.map((stat) => stat.total));
+        const grandTotal = stats.reduce((sum, stat) => sum + stat.total, 0);
+
+        return stats
+          .map((stat) => {
+            const share = grandTotal ? stat.total / grandTotal : 0;
+            const glyph = stat.total ? stat.topChar : stat.family.defaultChar;
+            return {
+              id: "djinn-seed-" + stat.family.type + "-" + ((stat.seedCode + stat.total + stat.bestSheetCount) >>> 0).toString(16),
+              type: stat.family.type,
+              label: stat.family.label,
+              glyph,
+              dominantChar: glyph,
+              color: stat.family.color,
+              sheet: stat.total ? stat.bestSheet + 1 : state.cur + 1,
+              vitality: stat.total ? Math.max(1, Math.round((stat.total / maxTotal) * 9)) : 0,
+              echo: stat.total ? Math.min(99, Math.round((stat.active / stat.total) * 99)) : 0,
+              charge: grandTotal ? Math.round(share * 100) : 0,
+              count: stat.total,
+              share,
+              activeCount: stat.active,
+              dormant: stat.total === 0,
+              stageSet: stat.family.stages,
+              pond: stat.family.pond,
+            };
+          })
+          .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+      }
+
+      function describeDjinnWeather(seeds) {
+        const live = seeds.filter((seed) => !seed.dormant);
+        if (!live.length) {
+          return "quiet";
+        }
+        if (live.length === 1) {
+          return live[0].label.replace(" Djinn", "") + " dominant";
+        }
+        const lead = live[0];
+        const second = live[1];
+        const leadName = lead.label.replace(" Djinn", "");
+        const secondName = second.label.replace(" Djinn", "");
+        if (lead.share - second.share >= 0.15) {
+          return leadName + " dominant";
+        }
+        return leadName + " folding into " + secondName;
+      }
+
+      function updateGardenStages() {
+        const stages = ["SEED", "SPROUT", "BUD", "EGG"];
+        return state.garden.map((plot) => {
+          if (!plot) {
+            return null;
+          }
+          const age = Math.max(0, state.honks + state.toodles - plot.plantedAt);
+          const family = getDjinnFamily(plot.type);
+          const palette = Array.isArray(plot.stageSet) && plot.stageSet.length ? plot.stageSet : family ? family.stages : stages;
+          return {
+            ...plot,
+            stage: palette[Math.min(palette.length - 1, Math.floor(age / 2))],
+          };
+        });
+      }
+
+      function plantSeed(seed) {
+        const slot = state.garden.findIndex((plot) => !plot);
+        const target = slot >= 0 ? slot : (state.honks + state.toodles) % state.garden.length;
+        state.garden[target] = {
+          ...seed,
+          plantedAt: state.honks + state.toodles,
+        };
+      }
+
+      function plantRandomSeed() {
+        const snapshot = buildVoxelSnapshot({
+          modeOverride: "all",
+          densityFloor: 0,
+          maxPoints: 3600,
+        });
+        const seeds = deriveSeeds(snapshot);
+        const pool = seeds.filter((seed) => !seed.dormant);
+        const usable = pool.length ? pool : seeds;
+        if (!usable.length) {
+          return;
+        }
+        const pick = usable[(state.honks + state.toodles + state.recursion) % usable.length];
+        plantSeed(pick);
+        renderAll();
+        scheduleSave();
+      }
+
+      function pondRipples() {
+        const left = "'".repeat(Math.min(6, 1 + (state.honks % 6)));
+        const right = ",".repeat(Math.min(6, 1 + (state.toodles % 6)));
+        return left + " O " + right;
+      }
+
+      function renderWorld(snapshot) {
+        const seeds = deriveSeeds(snapshot);
+        const stagedGarden = updateGardenStages();
+        const quid = computeQuidMix(snapshot);
+        const liveSeeds = seeds.filter((seed) => !seed.dormant);
+        const dominantSeed = liveSeeds[0] || seeds[0] || null;
+        const planted = stagedGarden.filter(Boolean).length;
+
+        ui.seedList.innerHTML = "";
+        seeds.forEach((seed) => {
+          const row = document.createElement("div");
+          row.className = "seed-row";
+          row.style.borderColor = seed.color;
+          row.style.boxShadow = "inset 0 0 0 1px " + seed.color + "22";
+          row.style.opacity = seed.dormant ? "0.64" : "1";
+          row.innerHTML =
+            "<div><strong>" +
+            escapeHtml(seed.glyph + " " + seed.label) +
+            "</strong><div class=\"seed-meta\">sheet S" +
+            seed.sheet +
+            " - charge " +
+            seed.charge +
+            "% - echo " +
+            seed.echo +
+            (seed.dormant ? " - dormant" : " - " + escapeHtml(describeDensityChar(seed.dominantChar))) +
+            "</div></div>";
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = seed.dormant ? "Dormant" : "Plant";
+          button.disabled = seed.dormant;
+          button.style.borderColor = seed.color;
+          if (!seed.dormant) {
+            button.style.color = seed.color;
+            button.addEventListener("click", () => {
+              plantSeed(seed);
+              renderAll();
+              scheduleSave();
+            });
+          }
+          row.appendChild(button);
+          ui.seedList.appendChild(row);
+        });
+
+        ui.gardenGrid.innerHTML = "";
+        stagedGarden.forEach((plot) => {
+          const cell = document.createElement("div");
+          cell.className = "plot";
+          if (!plot) {
+            cell.classList.add("empty");
+            cell.innerHTML = "<div>empty plot</div><div class=\"meta\">waiting for a seed</div>";
+          } else {
+            const plotCharge = Number.isFinite(plot.charge) ? plot.charge : 0;
+            const plotVitality = Number.isFinite(plot.vitality) ? plot.vitality : 1;
+            cell.style.borderColor = plot.color || "";
+            if (plot.color) {
+              cell.style.boxShadow = "inset 0 0 0 1px " + plot.color + "22";
+            }
+            cell.innerHTML =
+              "<div><strong>" +
+              escapeHtml(plot.glyph + " " + plot.label) +
+              "</strong></div><div class=\"meta\">stage: " +
+              escapeHtml(plot.stage) +
+              " - " +
+              escapeHtml(describeDensityChar(plot.dominantChar || plot.glyph)) +
+              "</div><div class=\"meta\">sheet: S" +
+              plot.sheet +
+              " - charge: " +
+              plotCharge +
+              "% - vitality: " +
+              plotVitality +
+              "</div>";
+          }
+          ui.gardenGrid.appendChild(cell);
+        });
+
+        ui.pondRipple.textContent = pondRipples();
+        ui.pondStateText.textContent = "State: " + state.pond + (dominantSeed ? " / " + dominantSeed.pond : "");
+        ui.eggStateText.textContent =
+          planted >= 4
+            ? "Egg: four Djinn aligned"
+            : dominantSeed
+              ? "Egg: warming toward " + dominantSeed.label.replace(" Djinn", "").toLowerCase()
+              : "Egg: warm and waiting";
+        ui.worldNote.textContent =
+          "Djinn weather: " +
+          describeDjinnWeather(seeds) +
+          ". Quid mix: " +
+          quid.top +
+          ". Honks " +
+          state.honks +
+          ", toodles " +
+          state.toodles +
+          ", recursion " +
+          state.recursion +
+          ".";
+        ui.worldStats.textContent = "world: " + planted + " bound - " + liveSeeds.length + " djinn seeds live";
+      }
+
+      function renderAll() {
+        ensureSelectionVisible();
+        renderStatus();
+        renderFormulaBar();
+        renderSheetButtons();
+        renderGrid();
+        renderViewState();
+        if (state.view === "voxel" || state.view === "thread" || state.view === "world") {
+          const snapshot = buildVoxelSnapshot({
+            modeOverride: state.view === "voxel" ? state.voxelMode : "all",
+            densityFloor: state.view === "voxel" ? state.voxelDensityFloor : 0,
+            maxPoints: state.view === "world" ? 3600 : 2400,
+          });
+          const quid = computeQuidMix(snapshot);
+          ui.quidReadout.textContent = "quid: " + quid.top;
+          if (state.view === "voxel") {
+            renderVoxelCanvas(snapshot);
+          } else if (state.view === "thread") {
+            renderThreadCanvas(snapshot);
+          } else {
+            renderWorld(snapshot);
+          }
+        }
+        renderDetails();
+      }
+
+      function renderStatus() {
+        const metrics = getMetrics();
+        const workbookId = computeWorkbookId(metrics);
+        const currentSheet = state.sheets[state.cur];
+        ui.sheetReadout.textContent = "sheet: " + (state.cur + 1) + " / " + SHEETS;
+        ui.baseReadout.textContent = "base: " + (currentSheet.base === "seed" ? "seed" : "csv");
+        ui.workbookReadout.textContent = "workbook: " + workbookId;
+        ui.editReadout.textContent = "edits: " + metrics.editedCells + " - formulas: " + metrics.formulaCells;
+        ui.modeReadout.textContent =
+          state.view === "sheet"
+            ? "view: sheet - display: " + VISIBLE_ROWS + " x " + VISIBLE_COLS
+            : state.view === "voxel"
+              ? "view: voxel - " + state.voxelMode + " - floor " + state.voxelDensityFloor + " - active S" + (state.cur + 1)
+            : "view: " + state.view + " - active S" + (state.cur + 1);
+        ui.activeSliceMeta.textContent = "active: S" + (state.cur + 1);
+        ui.quidReadout.textContent = "quid: " + (currentSheet.base === "blank" ? "mutable" : "seeded");
+        ui.pondReadout.textContent = "pond: " + state.pond;
+        ui.scrollReadout.textContent = "r" + state.scrollR + " c" + state.scrollC;
+        ui.rowScroll.value = String(state.scrollR);
+        ui.colScroll.value = String(state.scrollC);
+        ui.sheetSlider.value = String(state.cur);
+        ui.playBtn.textContent = state.playing ? "Pause" : "Play";
+        ui.voxelDepth.value = String(state.voxelDepth);
+        ui.voxelDepthReadout.textContent = String(state.voxelDepth);
+        ui.voxelRadius.value = String(state.voxelRadius);
+        ui.voxelRadiusReadout.textContent = String(state.voxelRadius);
+        ui.voxelDensity.value = String(state.voxelDensityFloor);
+        ui.voxelDensityReadout.textContent = String(state.voxelDensityFloor);
+        ui.voxelYaw.value = String(state.voxelYaw);
+        ui.voxelYawReadout.textContent = String(state.voxelYaw);
+        ui.driftBtn.classList.toggle("active", currentSheet.base === "blank");
+      }
+
+      function renderFormulaBar() {
+        const coord = colLabel(state.selC) + (state.selR + 1);
+        const raw = getRawCell(state.cur, state.selR, state.selC);
+        const shown = state.editMode ? state.formula : raw === " " ? "" : raw;
+        ui.cellCoord.textContent = coord;
+        if (document.activeElement !== ui.formulaInput || ui.formulaInput.value !== shown) {
+          ui.formulaInput.value = shown;
+        }
+        ui.cellDisplay.textContent = "raw: " + (raw === " " ? "blank" : raw);
+      }
+
+      function renderSheetButtons() {
+        ui.sheetButtons.innerHTML = Array.from({ length: SHEETS }, (_, index) => {
+          const isCurrent = index === state.cur ? "current" : "";
+          return "<button type=\"button\" class=\"" + isCurrent + "\" data-sheet=\"" + index + "\">" + (index + 1) + "</button>";
+        }).join("");
+      }
+
+      function renderGrid() {
+        const visibleRows = Array.from({ length: VISIBLE_ROWS }, (_, index) => state.scrollR + index);
+        const visibleCols = Array.from({ length: VISIBLE_COLS }, (_, index) => state.scrollC + index);
+
+        const header =
+          "<thead><tr><th class=\"row-head\"></th>" +
+          visibleCols.map((col) => "<th>" + escapeHtml(colLabel(col)) + "</th>").join("") +
+          "</tr></thead>";
+
+        const body = visibleRows
+          .map((row) => {
+            const cells = visibleCols
+              .map((col) => {
+                const raw = getRawCell(state.cur, row, col);
+                const char = displayChar(state.cur, row, col);
+                const selected = row === state.selR && col === state.selC;
+                const classes = [];
+                if (selected) {
+                  classes.push("selected");
+                }
+                if (char === " ") {
+                  classes.push("empty");
+                }
+                if (isSeededCell(state.cur, row, col)) {
+                  classes.push("seeded");
+                }
+                if (typeof raw === "string" && raw.startsWith("=")) {
+                  classes.push("formula-cell");
+                }
+                const color = DENSITY_COLORS[char] || "";
+                const style = color ? " style=\"color:" + color + "\"" : "";
+                return (
+                  "<td data-r=\"" +
+                  row +
+                  "\" data-c=\"" +
+                  col +
+                  "\" class=\"" +
+                  classes.join(" ") +
+                  "\"" +
+                  style +
+                  ">" +
+                  escapeHtml(char === " " ? " " : char) +
+                  "</td>"
+                );
+              })
+              .join("");
+            return "<tr><th class=\"row-head\">" + (row + 1) + "</th>" + cells + "</tr>";
+          })
+          .join("");
+
+        ui.sheetGrid.innerHTML = header + "<tbody>" + body + "</tbody>";
+      }
+
+      function renderDetails() {
+        const coord = colLabel(state.selC) + (state.selR + 1);
+        const raw = getRawCell(state.cur, state.selR, state.selC);
+        const resolved = displayChar(state.cur, state.selR, state.selC);
+        const variantSeed = Number.parseInt(computeWorkbookId(getMetrics()).slice(0, 2), 16) || 0;
+        const goose = GOOSE_VARIANTS[variantSeed % GOOSE_VARIANTS.length];
+        const startCol = colLabel(state.scrollC);
+        const endCol = colLabel(Math.min(COLS - 1, state.scrollC + VISIBLE_COLS - 1));
+        const currentSheet = state.sheets[state.cur];
+
+        ui.gooseAscii.textContent = goose.join("\n");
+        ui.gooseName.textContent =
+          currentSheet.base === "seed"
+            ? "Seed Goose"
+            : currentSheet.cells.size > 800
+              ? "CSV Goose"
+              : "Edit Goose";
+        ui.selectionReadout.textContent = "selected: " + coord;
+        ui.resolvedReadout.textContent = "resolved: " + (resolved === " " ? "blank" : resolved);
+        ui.windowReadout.textContent =
+          "window: r" +
+          (state.scrollR + 1) +
+          "-r" +
+          Math.min(ROWS, state.scrollR + VISIBLE_ROWS) +
+          " c" +
+          startCol +
+          "-" +
+          endCol;
+        ui.noteBlock.innerHTML =
+          "CSV is a one-sheet format, so this workbook keeps 64 browser tabs and lets you import or export the active sheet. " +
+          "Press <code>1</code>, <code>2</code>, <code>3</code>, or <code>4</code> to switch between sheet, voxel, thread, and world views. " +
+          "The selected cell <code>" +
+          escapeHtml(coord) +
+          "</code> is showing <code>" +
+          escapeHtml(resolved === " " ? "blank" : resolved) +
+          "</code> from a " +
+          (typeof raw === "string" && raw.startsWith("=")
+            ? "formula reference."
+            : isSeededCell(state.cur, state.selR, state.selC)
+              ? "seeded value."
+              : "local override.");
+      }
+
+      function escapeHtml(text) {
+        return String(text)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll("\"", "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+    </script>
+  </body>
+</html>

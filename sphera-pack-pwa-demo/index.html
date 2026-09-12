@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#071018">
+  <meta name="description" content="A pocket field station for the Sphera Pack experiments.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/sphera.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/sphera-192.png">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Sphera Field Station</title>
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="wordmark" href="#top" aria-label="Sphera Field Station home">
+      <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span><b>SPHERA</b><small>FIELD STATION / 01</small></span>
+    </a>
+    <div class="status"><span class="pulse"></span><span id="network-status">SYSTEM ONLINE</span></div>
+    <button class="install" id="install-button" hidden>INSTALL STATION <span>↘</span></button>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="kicker">LOCAL EXPERIMENT PACK · 2026.07</p>
+        <h1>Patterns become<br><em>places.</em></h1>
+        <p class="lede">A portable observatory for strange systems: stacked glyphs, rarity-seeking gice, living shells, and companion geese.</p>
+        <div class="hero-actions">
+          <a class="primary" href="#atlas">OPEN THE ATLAS <span>↓</span></a>
+          <button class="secondary" id="random-button">SURPRISE ME <span>↗</span></button>
+        </div>
+      </div>
+      <div class="orbital" aria-label="Animated Sphera field visualization">
+        <div class="orbit orbit-a"><span></span></div>
+        <div class="orbit orbit-b"><span></span></div>
+        <div class="sphere"><div class="glyphs">字<br><b>稀</b><br>界</div></div>
+        <div class="readout r1"><b>08</b><span>ACTIVE<br>WORLDS</span></div>
+        <div class="readout r2"><b>∞</b><span>POSSIBLE<br>STATES</span></div>
+      </div>
+    </section>
+
+    <section class="atlas" id="atlas">
+      <div class="section-head">
+        <div><p class="kicker">EXPERIMENT ATLAS</p><h2>Choose a world.</h2></div>
+        <p>Each experiment opens in its original form.<br>Once visited, it remains available offline.</p>
+      </div>
+      <div class="world-grid">
+        <a class="world melody" href="./exhibits/sphere-gice/sphere-gice-melody-v2-v3.3.html">
+          <span class="index">01 / SPHERE GICE V3.3 · HONK HEIST</span><div class="mini melodymark"><i>♪</i><b></b><b></b><b></b></div>
+          <div><h3>Sphere Gice<br>Melody v2</h3><p>The canonical Honk Heist build: rare-glyph paths become contour, motion, and sound.</p><span class="launch">ENTER FLAGSHIP ↗</span></div>
+        </a>
+        <a class="world voxel" href="./exhibits/builders/spherai-voxel-64.html">
+          <span class="index">02 / VOXEL 64 · 8 × 8 QUATERNION EDITION</span><div class="mini voxels"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div><h3>Spherai<br>Voxel 64 Q</h3><p>Eight rainbow octaves, eight notes each. Still by default; drag freely without gimbal lock.</p><span class="launch">OPEN VOXEL APP ↗</span></div>
+        </a>
+        <a class="world builder" href="./exhibits/builders/sm7-goose-cube-workbook.html">
+          <span class="index">03 / SM7 · GOOSE CUBE BUILDER</span><div class="mini workbook"><i>64</i><b>×</b><span>246²</span></div>
+          <div><h3>Goose Cube<br>Workbook</h3><p>Build and edit a 64-sheet density cube across Sheet, Voxel, Thread, and World views.</p><span class="launch">OPEN BUILDER ↗</span></div>
+        </a>
+        <a class="world fusion" href="./exhibits/sheet_cube_gice.html">
+          <span class="index">04 / FUSION</span><div class="mini cube"><i></i><i></i><i></i></div>
+          <div><h3>Sheet Cube<br>Gice</h3><p>Stack Hanzi sheets into a navigable cube. Watch gice seek the rarest marks.</p><span class="launch">ENTER EXPERIMENT ↗</span></div>
+        </a>
+        <a class="world zooter" href="./exhibits/zooter/zooter_clean.html">
+          <span class="index">05 / ZOOTER</span><div class="mini sonar"><i></i><i></i><i></i></div>
+          <div><h3>Project<br>Zooter</h3><p>A living shell-and-tile instrument for emergent, colorful systems.</p><span class="launch">ENTER EXPERIMENT ↗</span></div>
+        </a>
+        <a class="world goose" href="./exhibits/goose/octave.gice.html">
+          <span class="index">06 / GOOSE</span><div class="mini goosemark">◜<b>•</b></div>
+          <div><h3>Goose<br>Holodeck</h3><p>An Ising-flavored cube with a curious companion somewhere inside.</p><span class="launch">ENTER EXPERIMENT ↗</span></div>
+        </a>
+        <a class="world hanzi" href="./exhibits/hanzi/hanzi_gravity_sim.html">
+          <span class="index">07 / HANZI</span><div class="mini character">稀</div>
+          <div><h3>Hanzi<br>Gravity</h3><p>Let frequency bend space. Common glyphs anchor; rare forms drift.</p><span class="launch">ENTER EXPERIMENT ↗</span></div>
+        </a>
+        <a class="world crossing" href="./exhibits/goose-crossing/index.html">
+          <span class="index">08 / LOCAL STATE ADAPTER</span><div class="mini crossingmark"><i></i><b>KNOT</b><span>φ</span></div>
+          <div><h3>Goose Crossing<br>Local</h3><p>Tie Voxel 64 notes into a seeded S³ field. Actions change condensate; full checkpoints live in verified local capsules.</p><span class="launch">OPEN LOCAL ADAPTER ↗</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="fieldnote">
+      <p class="kicker">FIELD NOTE / 001</p>
+      <blockquote>“A system is not a picture.<br>It is a place you can visit.”</blockquote>
+      <div class="coordinates"><span>SPHERA PACK</span><span>40.71° N / 74.00° W</span><span>LOCAL-FIRST · OFFLINE-READY</span></div>
+    </section>
+  </main>
+
+  <footer><span>SPHERA / POCKET OBSERVATORY</span><span>PACKED WITH EIGHT LIVE EXPERIMENTS</span><a href="#top">RETURN TO ORBIT ↑</a></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js" defer></script>
+</body>
+</html>
