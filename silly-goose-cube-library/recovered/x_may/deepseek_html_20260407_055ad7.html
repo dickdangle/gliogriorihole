@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>⚡ SPHERAI · GOOSE CUBE 64×246×246 ⚡</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      margin: 0;
+      background: #0a0c12;
+      font-family: 'Courier New', 'Fira Code', monospace;
+      padding: 16px;
+    }
+
+    /* Golden Sun inspired glow */
+    .gold-panel {
+      background: linear-gradient(135deg, #1e1a2f 0%, #0f0e1a 100%);
+      border: 1px solid #f5b642;
+      border-radius: 20px;
+      box-shadow: 0 0 12px rgba(245, 182, 66, 0.4);
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+
+    button, .sheet-tab {
+      transition: all 0.1s ease;
+    }
+
+    button:active {
+      transform: scale(0.96);
+    }
+
+    .quack-btn {
+      background: #d48b2c;
+      border: none;
+      font-weight: bold;
+      font-size: 1.2rem;
+      padding: 6px 18px;
+      border-radius: 60px;
+      cursor: pointer;
+      color: #1f1a2e;
+      box-shadow: 0 0 6px #ffb347;
+      font-family: monospace;
+    }
+
+    .quack-btn:hover {
+      background: #f0a341;
+      transform: scale(1.02);
+    }
+
+    .grid-container {
+      overflow-x: auto;
+      border-radius: 12px;
+      background: #0b0d14;
+      padding: 4px;
+    }
+
+    table {
+      border-collapse: collapse;
+      font-family: 'Courier New', monospace;
+    }
+
+    td, th {
+      transition: background 0.05s linear;
+    }
+
+    /* goose foot stamp */
+    @keyframes wobble {
+      0% { transform: translate(0,0); }
+      25% { transform: translate(2px, -2px); }
+      75% { transform: translate(-2px, 2px); }
+      100% { transform: translate(0,0); }
+    }
+    .shake-grid {
+      animation: wobble 0.08s infinite;
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Load React & Babel from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+  // --------------------------------------------------------------
+  //  SILICON GOOSE CUBE  64 (Z) × 246 (Y) × 246 (X)
+  //  SM7 character set + deterministic 3D scalar seed
+  //  "Olympia" style = Golden Sun summon voxel animation
+  // --------------------------------------------------------------
+  const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+  // ----- SM7 ----- (full set: symbols + letters + numbers)
+  const SM7 = " .,:;!?'\"-/+=*#@%&_()abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const SM7_SET = new Set(SM7);
+
+  // Density gradient (used for Ising & mapping)
+  const DENSITY = ["@","#","%","&","*","+","=","-",".",","," "];
+
+  // Shell elements (Golden Sun style)
+  const SHELL_CHARS = [
+    { char: "@", label: "Fire",  color: "#c0392b" },
+    { char: "#", label: "Magma", color: "#e67e22" },
+    { char: "%", label: "Earth", color: "#7f6000" },
+    { char: "&", label: "Wood",  color: "#27ae60" },
+    { char: "*", label: "Water", color: "#2980b9" },
+    { char: "+", label: "Air",   color: "#85c1e9" },
+    { char: "=", label: "Aether",color: "#9b59b6" },
+    { char: ".", label: "Void",  color: "#2c2c2a" },
+  ];
+
+  const SHEETS = 64;     // Z axis (depth)
+  const ROWS = 246;      // Y axis (height)
+  const COLS = 246;      // X axis (width)
+  const VISIBLE_ROWS = 28;
+  const VISIBLE_COLS = 52;
+  const GOOSE_CENTER_SHEETS = [30, 31, 32]; // UI labels 31-33
+  const GOOSE_CENTER_Z = 31;
+  const GOOSE_TEMPLATE = [
+    "     .--.      ",
+    "  .-(O  )-.    ",
+    " (___   ___)   ",
+    "    /  /       ",
+    "   /__/        ",
+  ];
+
+  // ----- deterministic 3D scalar seed (Olympia SM7 format) -----
+  // maps (z, y, x) → SM7 character using a smooth pseudo‑random field
+  function seededScalar(z, y, x, seed = 42) {
+    // simple integer hash (wave + prime)
+    let val = Math.sin(z * 0.137 + seed) * 173.4 +
+              Math.cos(y * 0.093) * 87.2 +
+              Math.sin(x * 0.071) * 51.7 +
+              Math.sin((z * 19 + y * 31 + x * 73) * 0.007);
+    val = val - Math.floor(val);  // fract
+    // map to DENSITY index (0..10) then to SM7 char
+    const idx = Math.floor(val * DENSITY.length);
+    return DENSITY[Math.min(idx, DENSITY.length-1)];
+  }
+
+  function patternWidth(pattern) {
+    return pattern.reduce((max, row) => Math.max(max, row.length), 0);
+  }
+
+  function scalePattern(pattern, scaleX, scaleY) {
+    const srcH = pattern.length;
+    const srcW = patternWidth(pattern);
+    const outH = Math.max(2, Math.round(srcH * scaleY));
+    const outW = Math.max(3, Math.round(srcW * scaleX));
+    const canvas = Array.from({ length: outH }, () => new Array(outW).fill(" "));
+
+    pattern.forEach((row, y) => {
+      [...row].forEach((ch, x) => {
+        if (ch === " ") return;
+        const ny = srcH === 1 ? 0 : Math.round((y / (srcH - 1)) * (outH - 1));
+        const nx = srcW === 1 ? 0 : Math.round((x / (srcW - 1)) * (outW - 1));
+        canvas[ny][nx] = ch;
+      });
+    });
+
+    return canvas.map(row => row.join(""));
+  }
+
+  function stampPattern(sheet, pattern, sr, sc, z, voxels) {
+    pattern.forEach((row, dr) => {
+      [...row].forEach((ch, dc) => {
+        const rr = sr + dr;
+        const cc = sc + dc;
+        if (ch !== " " && rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS && SM7_SET.has(ch)) {
+          sheet[rr][cc] = ch;
+          if (voxels) voxels.push({ z, y: rr, x: cc, ch });
+        }
+      });
+    });
+  }
+
+  function gooseSliceForSheet(z) {
+    const maxDist = Math.max(GOOSE_CENTER_Z, SHEETS - 1 - GOOSE_CENTER_Z);
+    const dist = Math.abs(z - GOOSE_CENTER_Z);
+    const norm = dist / maxDist;
+    const scaleX = Math.max(0.26, 1 - norm * 0.72);
+    const scaleY = Math.max(0.35, 1 - norm * 0.55);
+    return scalePattern(GOOSE_TEMPLATE, scaleX, scaleY);
+  }
+
+  function stampGooseVolume(sheets) {
+    const voxels = [];
+    const anchorRow = Math.floor(ROWS / 2);
+    const anchorCol = Math.floor(COLS / 2);
+    const maxDist = Math.max(GOOSE_CENTER_Z, SHEETS - 1 - GOOSE_CENTER_Z);
+
+    for (let z = 0; z < SHEETS; z++) {
+      const dist = Math.abs(z - GOOSE_CENTER_Z);
+      const norm = dist / maxDist;
+      const slice = gooseSliceForSheet(z);
+      const sliceH = slice.length;
+      const sliceW = patternWidth(slice);
+      const arcLift = Math.round((1 - norm) * 4);
+      const sideDrift = Math.round((z - GOOSE_CENTER_Z) * 0.12);
+      const sr = anchorRow - Math.floor(sliceH / 2) - arcLift;
+      const sc = anchorCol - Math.floor(sliceW / 2) + sideDrift;
+      stampPattern(sheets[z], slice, sr, sc, z, voxels);
+    }
+
+    return {
+      voxels,
+      meta: {
+        centerArcSheets: GOOSE_CENTER_SHEETS.map(index => index + 1),
+        centerSheet: GOOSE_CENTER_Z + 1,
+      },
+    };
+  }
+
+  // initialize all 64 sheets with the scalar seed (deterministic)
+  function makeScaledCube() {
+    const sheets = Array.from({ length: SHEETS }, () =>
+      Array.from({ length: ROWS }, () => new Array(COLS).fill(" "))
+    );
+    for (let z = 0; z < SHEETS; z++) {
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          sheets[z][y][x] = seededScalar(z, y, x, 42);
+        }
+      }
+    }
+    const goose = stampGooseVolume(sheets);
+    return { sheets, gooseVoxels: goose.voxels, gooseMeta: goose.meta };
+  }
+
+  // ----- goose ASCII stamp -----
+  function stampGoose(sheet, sr, sc) {
+    stampPattern(sheet, GOOSE_TEMPLATE, sr, sc);
+    return sheet;
+  }
+
+  // Ising step (artistic chaos)
+  function isingStep(sheet) {
+    const next = sheet.map(r => [...r]);
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const ch = sheet[r][c];
+        const idx = DENSITY.indexOf(ch);
+        if (idx < 0) continue;
+        const neighbors = [
+          sheet[(r-1+ROWS)%ROWS][c], sheet[(r+1)%ROWS][c],
+          sheet[r][(c-1+COLS)%COLS], sheet[r][(c+1)%COLS]
+        ];
+        const nSum = neighbors.reduce((a,n) => {
+          const ni = DENSITY.indexOf(n);
+          return a + (ni >= 0 ? (5 - ni) : 0);
+        }, 0);
+        const spin = idx < 5 ? 1 : -1;
+        const delta = spin * nSum;
+        if (delta < 0 || Math.random() < Math.exp(-delta * 0.3)) {
+          const ni = Math.max(0, Math.min(DENSITY.length-1, idx + (Math.random()<0.5?1:-1)));
+          next[r][c] = DENSITY[ni];
+        }
+      }
+    }
+    return next;
+  }
+
+  // helper: resolve formulas (simple refs)
+  function parseRef(expr, sheetIdx) {
+    const m = expr.match(/^=S(\d+)\.([A-Z]+)(\d+)$/i);
+    if (m) {
+      const s = parseInt(m[1]) - 1;
+      const c = m[2].toUpperCase().split("").reduce((a,ch) => a*26 + ch.charCodeAt(0)-64, 0) - 1;
+      const r = parseInt(m[3]) - 1;
+      return { s, r, c };
+    }
+    const m2 = expr.match(/^=([A-Z]+)(\d+)$/i);
+    if (m2) {
+      const c = m2[1].toUpperCase().split("").reduce((a,ch) => a*26 + ch.charCodeAt(0)-64, 0) - 1;
+      const r = parseInt(m2[2]) - 1;
+      return { s: sheetIdx, r, c };
+    }
+    return null;
+  }
+
+  function colLabel(c) {
+    let s = "";
+    c++;
+    while (c > 0) { s = String.fromCharCode(64 + (c % 26 || 26)) + s; c = Math.floor((c - 1) / 26); }
+    return s;
+  }
+
+  function simpleHash(text) {
+    let h = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function deriveSeedPackets(gooseVoxels, honkCount, recursionCycle) {
+    const signature = gooseVoxels
+      .slice(0, 96)
+      .map(v => `${v.z}:${v.y}:${v.x}:${v.ch}`)
+      .join("|");
+    const base = simpleHash(`${signature}:${gooseVoxels.length}:${honkCount}:${recursionCycle}`);
+    const labels = ["POND", "GARDEN", "EGG", "ARC", "HONK", "NEST", "SEED"];
+    const glyphs = ["O", "0", "G", "@", "%", "*", "+"];
+
+    return Array.from({ length: 4 }, (_, i) => {
+      const raw = (base + i * 2654435761) >>> 0;
+      return {
+        id: `seed-${i}-${raw.toString(16)}`,
+        glyph: glyphs[raw % glyphs.length],
+        label: labels[(raw >>> 3) % labels.length],
+        shell: ((raw >>> 5) % SHEETS) + 1,
+        vitality: 1 + ((raw >>> 9) % 9),
+        echo: (raw >>> 13) % 64,
+      };
+    });
+  }
+
+  // --------------------------------------------------------------
+  //  Main App Component
+  // --------------------------------------------------------------
+  function App() {
+    const initialCube = useMemo(() => makeScaledCube(), []);
+    const [sheets, setSheets] = useState(() => initialCube.sheets);
+    const [gooseVoxels, setGooseVoxels] = useState(() => initialCube.gooseVoxels);
+    const [gooseMeta, setGooseMeta] = useState(() => initialCube.gooseMeta);
+    const [cur, setCur] = useState(GOOSE_CENTER_Z);
+    const [selR, setSelR] = useState(120);
+    const [selC, setSelC] = useState(120);
+    const [scrollR, setScrollR] = useState(Math.floor(ROWS/2) - Math.floor(VISIBLE_ROWS/2) - 4);
+    const [scrollC, setScrollC] = useState(Math.floor(COLS/2) - Math.floor(VISIBLE_COLS/2));
+    const [formula, setFormula] = useState("");
+    const [editMode, setEditMode] = useState(false);
+    const [isingSim, setIsingSim] = useState(false);
+    const [showMacro, setShowMacro] = useState(false);
+    const [macroText, setMacroText] = useState("// macro: stamp goose everywhere\nfor(let r=0;r<50;r++) for(let c=0;c<50;c++) set(r,c,'@')");
+    const [macroOut, setMacroOut] = useState("");
+    const [shake, setShake] = useState(0);
+    const [animPlaying, setAnimPlaying] = useState(false);
+    const [animFrame, setAnimFrame] = useState(0);
+    const [animFPS, setAnimFPS] = useState(12);
+    const [animLoop, setAnimLoop] = useState(true);
+    const [honkCount, setHonkCount] = useState(0);
+    const [toodleCount, setToodleCount] = useState(0);
+    const [recursionCycle, setRecursionCycle] = useState(1);
+    const [gardenPlots, setGardenPlots] = useState(() => Array.from({ length: 6 }, () => null));
+    const [pondState, setPondState] = useState("still");
+
+    const formulaRef = useRef(null);
+    const simRef = useRef(null);
+    const animInterval = useRef(null);
+    const audioCtxRef = useRef(null);
+    const visualizerRef = useRef(null);
+
+    // ----- QUACK QUACK (synthesized duck/goose sound using Web Audio) -----
+    const quack = useCallback(() => {
+      try {
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const ctx = audioCtxRef.current;
+        const now = ctx.currentTime;
+        // resume if suspended (browser autoplay policy)
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        // duck quack: fast FM-like sweep
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(440, now + 0.08);
+        osc.frequency.exponentialRampToValueAtTime(660, now + 0.12);
+        osc.frequency.exponentialRampToValueAtTime(330, now + 0.2);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+        osc.start();
+        osc.stop(now + 0.35);
+        // add a second "ack" quickly
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(620, now + 0.15);
+        osc2.frequency.exponentialRampToValueAtTime(410, now + 0.28);
+        gain2.gain.setValueAtTime(0.2, now + 0.15);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+        osc2.start(now + 0.15);
+        osc2.stop(now + 0.38);
+      } catch(e) { console.warn("quack failed", e); }
+    }, []);
+
+    const honkEngine = useCallback(() => {
+      quack();
+      setHonkCount(prev => prev + 1);
+      setRecursionCycle(prev => prev + 1);
+      setPondState(prev => prev === "still" ? "ringing" : prev === "ringing" ? "lapping" : "ringing");
+      setMacroOut("RECURSION ENGINE HONK");
+      setTimeout(() => setMacroOut(""), 900);
+    }, [quack]);
+
+    const toodlePond = useCallback(() => {
+      setToodleCount(prev => prev + 1);
+      setPondState(prev => prev === "still" ? "lapping" : prev === "lapping" ? "drifting" : "still");
+      setScrollC(prev => Math.max(0, Math.min(COLS - VISIBLE_COLS, prev + (toodleCount % 2 === 0 ? 2 : -2))));
+      setMacroOut("TOODLED THROUGH THE POND");
+      setTimeout(() => setMacroOut(""), 900);
+    }, [toodleCount]);
+
+    // resolve cell formula (with recursion guard)
+    const resolveCell = useCallback((s, r, c, visited = new Set()) => {
+      const key = `${s},${r},${c}`;
+      if (visited.has(key)) return "!";
+      visited.add(key);
+      if (s<0||s>=SHEETS||r<0||r>=ROWS||c<0||c>=COLS) return "?";
+      const v = sheets[s][r][c];
+      if (typeof v === "string" && v.startsWith("=")) {
+        const ref = parseRef(v, s);
+        if (ref) return resolveCell(ref.s, ref.r, ref.c, visited);
+        return "?";
+      }
+      return v;
+    }, [sheets]);
+
+    const displayChar = useCallback((s, r, c) => {
+      const v = sheets[s][r][c];
+      if (typeof v === "string" && v.startsWith("=")) return resolveCell(s,r,c);
+      return v;
+    }, [sheets, resolveCell]);
+
+    const cellColor = useCallback((ch) => {
+      const sc = SHELL_CHARS.find(x => x.char === ch);
+      return sc ? sc.color : null;
+    }, []);
+
+    const setCell = useCallback((s, r, c, val) => {
+      setSheets(prev => {
+        const next = prev.map(sh => sh.map(row => [...row]));
+        next[s][r][c] = val;
+        return next;
+      });
+    }, []);
+
+    // Ising effect
+    useEffect(() => {
+      if (!isingSim) { clearInterval(simRef.current); return; }
+      simRef.current = setInterval(() => {
+        setSheets(prev => {
+          const next = [...prev];
+          next[cur] = isingStep(prev[cur]);
+          return next;
+        });
+      }, 130);
+      return () => clearInterval(simRef.current);
+    }, [isingSim, cur]);
+
+    // Animation player (sheet flipbook)
+    useEffect(() => {
+      if (animPlaying) {
+        animInterval.current = setInterval(() => {
+          setAnimFrame(prev => {
+            let next = prev + 1;
+            if (next >= SHEETS) {
+              if (animLoop) next = 0;
+              else { setAnimPlaying(false); return prev; }
+            }
+            setCur(next);
+            return next;
+          });
+        }, 1000 / animFPS);
+      } else {
+        clearInterval(animInterval.current);
+      }
+      return () => clearInterval(animInterval.current);
+    }, [animPlaying, animFPS, animLoop]);
+
+    useEffect(() => {
+      setAnimFrame(cur);
+    }, [cur]);
+
+    // screen shake effect
+    useEffect(() => {
+      if (shake > 0) {
+        const timer = setTimeout(() => setShake(shake-1), 45);
+        return () => clearTimeout(timer);
+      }
+    }, [shake]);
+
+    // summon goose: shake + quack + stamp + Ising burst
+    const summonGoose = useCallback(() => {
+      quack();
+      setShake(6);
+      setSheets(prev => {
+        const next = prev.map(sheet => sheet.map(row => [...row]));
+        const goose = stampGooseVolume(next);
+        setGooseVoxels(goose.voxels);
+        setGooseMeta(goose.meta);
+        return next;
+      });
+      setCur(GOOSE_CENTER_Z);
+      setAnimFrame(GOOSE_CENTER_Z);
+      setSelR(Math.floor(ROWS/2));
+      setSelC(Math.floor(COLS/2));
+      setScrollR(Math.floor(ROWS/2) - Math.floor(VISIBLE_ROWS/2) - 4);
+      setScrollC(Math.floor(COLS/2) - Math.floor(VISIBLE_COLS/2));
+      const wasIsing = isingSim;
+      if (!wasIsing) setIsingSim(true);
+      setTimeout(() => { if(!wasIsing) setIsingSim(false); }, 2800);
+      setMacroOut("GOOSE GENERATED ON CENTER ARC S31-S33 AND PRINTED THROUGH THE CUBE");
+      setTimeout(() => setMacroOut(""), 2200);
+    }, [isingSim, quack]);
+
+    // macro runner
+    const runMacro = useCallback(() => {
+      try {
+        const densityFn = (n) => DENSITY[Math.min(DENSITY.length-1, Math.max(0, Math.floor(Math.abs(Math.sin(n*0.5)*10))))];
+        const set = (r,c,v) => setCell(cur,r,c,v);
+        const get = (r,c) => displayChar(cur,r,c);
+        const getS = (s,r,c) => displayChar(s,r,c);
+        const setS = (s,r,c,v) => setCell(s,r,c,v);
+        const stamp = (r,c,txt) => { [...txt].forEach((ch,i)=>{ if(SM7_SET.has(ch)) setCell(cur,r,c+i,ch); }); };
+        new Function("set","get","getS","setS","density","stamp","ROWS","COLS","SHEETS","SM7","SHELL_CHARS", macroText)(set,get,getS,setS,densityFn,stamp,ROWS,COLS,SHEETS,SM7,SHELL_CHARS);
+        setMacroOut("✓ macro done");
+      } catch(err) { setMacroOut("❌ "+err.message); }
+    }, [macroText, cur, setCell, displayChar]);
+
+    // keyboard navigation
+    const handleKey = useCallback((e) => {
+      if (editMode) return;
+      const move = {ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+      if (move[e.key]) {
+        e.preventDefault();
+        const [dr, dc] = move[e.key];
+        setSelR(r => { let nr = Math.min(ROWS-1, Math.max(0, r+dr)); if(nr<scrollR) setScrollR(nr); else if(nr>=scrollR+VISIBLE_ROWS) setScrollR(nr-VISIBLE_ROWS+1); return nr; });
+        setSelC(c => { let nc = Math.min(COLS-1, Math.max(0, c+dc)); if(nc<scrollC) setScrollC(nc); else if(nc>=scrollC+VISIBLE_COLS) setScrollC(nc-VISIBLE_COLS+1); return nc; });
+        return;
+      }
+      if (e.key === "PageUp") { setCur(c => Math.max(0,c-1)); return; }
+      if (e.key === "PageDown") { setCur(c => Math.min(SHEETS-1,c+1)); return; }
+      if (e.key === "Delete" || e.key === "Backspace") { setCell(cur,selR,selC," "); return; }
+      if (e.key === "Enter" || e.key === "F2") { setEditMode(true); setFormula(sheets[cur][selR][selC]); setTimeout(()=>formulaRef.current?.focus(),0); return; }
+      if (SM7_SET.has(e.key) && e.key.length===1 && !e.ctrlKey && !e.metaKey) { setCell(cur,selR,selC,e.key); setFormula(e.key); return; }
+      if (e.key === "=") { setEditMode(true); setFormula("="); setTimeout(()=>formulaRef.current?.focus(),0); }
+    }, [editMode, cur, selR, selC, scrollR, scrollC, sheets, setCell]);
+
+    const commitFormula = () => {
+      if (formula.startsWith("=")) setCell(cur,selR,selC,formula);
+      else { const ch = [...formula].find(c => SM7_SET.has(c)) || " "; setCell(cur,selR,selC,ch); }
+      setEditMode(false);
+      setFormula("");
+    };
+
+    const visRows = useMemo(() => Array.from({length: VISIBLE_ROWS}, (_,i) => i+scrollR), [scrollR]);
+    const visCols = useMemo(() => Array.from({length: VISIBLE_COLS}, (_,i) => i+scrollC), [scrollC]);
+    const cellVal = sheets[cur][selR][selC];
+    const gooseBounds = useMemo(() => {
+      if (!gooseVoxels.length) return null;
+      return gooseVoxels.reduce((acc, voxel) => ({
+        minX: Math.min(acc.minX, voxel.x),
+        maxX: Math.max(acc.maxX, voxel.x),
+        minY: Math.min(acc.minY, voxel.y),
+        maxY: Math.max(acc.maxY, voxel.y),
+        minZ: Math.min(acc.minZ, voxel.z),
+        maxZ: Math.max(acc.maxZ, voxel.z),
+      }), {
+        minX: Infinity, maxX: -Infinity,
+        minY: Infinity, maxY: -Infinity,
+        minZ: Infinity, maxZ: -Infinity,
+      });
+    }, [gooseVoxels]);
+    const seedPackets = useMemo(
+      () => deriveSeedPackets(gooseVoxels, honkCount, recursionCycle),
+      [gooseVoxels, honkCount, recursionCycle]
+    );
+    const plantedGarden = useMemo(() => {
+      const stages = ["SEED", "SPROUT", "BUD", "EGG"];
+      return gardenPlots.map(plot => {
+        if (!plot) return null;
+        const growth = Math.max(0, honkCount + toodleCount - plot.plantedAt);
+        const stage = stages[Math.min(stages.length - 1, Math.floor(growth / 2))];
+        return { ...plot, stage };
+      });
+    }, [gardenPlots, honkCount, toodleCount]);
+    const pondRipples = useMemo(() => {
+      const left = "'".repeat(Math.min(6, 1 + honkCount % 6));
+      const right = ",".repeat(Math.min(6, 1 + toodleCount % 6));
+      return `${left} O ${right}`;
+    }, [honkCount, toodleCount]);
+    const interpenetration = useMemo(() => {
+      const focus = gooseVoxels.filter(v => Math.abs(v.z - cur) <= 2);
+      if (!focus.length) return { neighborSamples: 0, ratio: 0, topDensity: "quiet" };
+      const occupied = new Set(focus.map(v => `${v.z}:${v.y}:${v.x}`));
+      const counts = {};
+      let neighborSamples = 0;
+
+      focus.forEach(v => {
+        [
+          [0, -1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1],
+          [-1, 0, 0], [1, 0, 0],
+        ].forEach(([dz, dy, dx]) => {
+          const zz = v.z + dz;
+          const yy = v.y + dy;
+          const xx = v.x + dx;
+          const key = `${zz}:${yy}:${xx}`;
+          if (zz < 0 || zz >= SHEETS || yy < 0 || yy >= ROWS || xx < 0 || xx >= COLS) return;
+          if (occupied.has(key)) return;
+          const ch = sheets[zz][yy][xx];
+          if (DENSITY.includes(ch) && ch !== " ") {
+            counts[ch] = (counts[ch] || 0) + 1;
+            neighborSamples++;
+          }
+        });
+      });
+
+      const topDensity = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([ch, count]) => `${ch}${count}`)
+        .join(" ");
+
+      return {
+        neighborSamples,
+        ratio: neighborSamples / Math.max(1, focus.length),
+        topDensity: topDensity || "quiet",
+      };
+    }, [cur, gooseVoxels, sheets]);
+
+    const plantSeed = useCallback((seed) => {
+      setGardenPlots(prev => {
+        const next = [...prev];
+        const firstEmpty = next.findIndex(plot => !plot);
+        const slot = firstEmpty >= 0 ? firstEmpty : (honkCount + toodleCount) % next.length;
+        next[slot] = { ...seed, plantedAt: honkCount + toodleCount };
+        return next;
+      });
+      setMacroOut(`PLANTED ${seed.label} IN THE SILLY GOOSE GARDEN`);
+      setTimeout(() => setMacroOut(""), 1200);
+    }, [honkCount, toodleCount]);
+
+    useEffect(() => {
+      const canvas = visualizerRef.current;
+      if (!canvas || !gooseBounds) return;
+      const ctx = canvas.getContext("2d");
+      const { width, height } = canvas;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#090c14";
+      ctx.fillRect(0, 0, width, height);
+
+      const midX = (gooseBounds.minX + gooseBounds.maxX) / 2;
+      const midY = (gooseBounds.minY + gooseBounds.maxY) / 2;
+      const midZ = (gooseBounds.minZ + gooseBounds.maxZ) / 2;
+      const spanX = Math.max(6, gooseBounds.maxX - gooseBounds.minX);
+      const spanY = Math.max(4, gooseBounds.maxY - gooseBounds.minY);
+      const spanZ = Math.max(10, gooseBounds.maxZ - gooseBounds.minZ);
+
+      const project = (x, y, z) => {
+        const nx = (x - midX) / spanX;
+        const ny = (y - midY) / spanY;
+        const nz = (z - midZ) / spanZ;
+        return {
+          x: width / 2 + (nx - nz) * 126,
+          y: height * 0.57 + (nx + nz) * 34 + ny * 104,
+        };
+      };
+
+      const ringAlpha = Math.min(0.45, 0.12 + interpenetration.ratio * 0.03);
+      const eggPulse = 0.55 + 0.45 * Math.sin((honkCount + recursionCycle + cur) * 0.18);
+      ctx.strokeStyle = `rgba(110, 196, 255, ${ringAlpha})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.ellipse(width / 2, height * 0.56, width * 0.24, height * 0.10, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(width / 2, height * 0.56, width * 0.14, height * 0.28, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(width / 2, height * 0.56, width * 0.21, height * 0.08, Math.PI / 4, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(255, 221, 145, ${0.18 + eggPulse * 0.18})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(width / 2, height * 0.54, width * 0.31, height * 0.40, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const corners = [
+        [gooseBounds.minX, gooseBounds.minY, gooseBounds.minZ],
+        [gooseBounds.maxX, gooseBounds.minY, gooseBounds.minZ],
+        [gooseBounds.maxX, gooseBounds.maxY, gooseBounds.minZ],
+        [gooseBounds.minX, gooseBounds.maxY, gooseBounds.minZ],
+        [gooseBounds.minX, gooseBounds.minY, gooseBounds.maxZ],
+        [gooseBounds.maxX, gooseBounds.minY, gooseBounds.maxZ],
+        [gooseBounds.maxX, gooseBounds.maxY, gooseBounds.maxZ],
+        [gooseBounds.minX, gooseBounds.maxY, gooseBounds.maxZ],
+      ].map(([x, y, z]) => project(x, y, z));
+
+      const edges = [
+        [0,1],[1,2],[2,3],[3,0],
+        [4,5],[5,6],[6,7],[7,4],
+        [0,4],[1,5],[2,6],[3,7],
+      ];
+      ctx.strokeStyle = "rgba(245, 182, 66, 0.22)";
+      ctx.lineWidth = 1;
+      edges.forEach(([a, b]) => {
+        ctx.beginPath();
+        ctx.moveTo(corners[a].x, corners[a].y);
+        ctx.lineTo(corners[b].x, corners[b].y);
+        ctx.stroke();
+      });
+
+      const sorted = [...gooseVoxels].sort((a, b) =>
+        (a.y + a.z * 0.4 + a.x * 0.1) - (b.y + b.z * 0.4 + b.x * 0.1)
+      );
+
+      sorted.forEach(voxel => {
+        const pt = project(voxel.x, voxel.y, voxel.z);
+        const isActive = Math.abs(voxel.z - cur) <= 1;
+        const isCenterArc = GOOSE_CENTER_SHEETS.includes(voxel.z);
+        const size = isActive ? 3.6 : isCenterArc ? 3 : 2.2;
+        ctx.fillStyle = isActive
+          ? "#ffd166"
+          : isCenterArc
+            ? "rgba(255, 191, 92, 0.78)"
+            : "rgba(140, 168, 224, 0.48)";
+        ctx.fillRect(pt.x, pt.y, size, size);
+      });
+
+      ctx.fillStyle = "#ffcf6e";
+      ctx.font = "12px monospace";
+      ctx.fillText(`center arc: S${gooseMeta.centerArcSheets.join("-S")}`, 12, 20);
+      ctx.fillText(`active sheet: S${cur + 1}`, 12, 38);
+      ctx.fillText(`goose voxels: ${gooseVoxels.length}`, 12, 56);
+      ctx.fillText(`quid mix: ${interpenetration.topDensity}`, 12, 74);
+    }, [cur, gooseBounds, gooseMeta, gooseVoxels, honkCount, interpenetration, recursionCycle]);
+
+    return (
+      <div tabIndex={0} onKeyDown={handleKey} style={{background:"#0a0c12", minHeight:"100vh", padding:"8px"}}>
+        {/* GOLDEN SUMMON PANEL */}
+        <div className="gold-panel" style={{display:"flex", flexWrap:"wrap", alignItems:"center", justifyContent:"space-between", gap:10}}>
+          <div style={{display:"flex", gap:12, alignItems:"center"}}>
+            <span style={{fontSize:"1.3rem", fontWeight:"bold", color:"#ffcf6e"}}>⚡ GOOSE CUBE 64×246×246 ⚡</span>
+            <button className="quack-btn" onClick={honkEngine}>🦆 QUACK QUACK 🦢</button>
+            <button onClick={summonGoose} style={{background:"#b85c1a", border:"none", borderRadius:40, padding:"6px 16px", fontWeight:"bold", color:"gold", cursor:"pointer"}}>✨ SUMMON GOOSE ✨</button>
+          </div>
+          <div style={{display:"flex", gap:6, alignItems:"center"}}>
+            <button onClick={()=>setAnimPlaying(!animPlaying)} style={{background:"#2c3e66", border:"none", borderRadius:20, padding:"4px 12px", color:"white"}}>{animPlaying ? "⏸️" : "▶️"} ANIM</button>
+            <span style={{color:"#aaa", fontSize:12}}>{animFrame+1}/{SHEETS}</span>
+            <input type="range" min={0} max={SHEETS-1} value={animFrame} onChange={e=>{let f=+e.target.value; setAnimFrame(f); setCur(f);}} style={{width:90}}/>
+            <span style={{color:"#aaa", fontSize:10}}>{animFPS}fps</span>
+            <input type="range" min={4} max={30} value={animFPS} onChange={e=>setAnimFPS(+e.target.value)} style={{width:60}}/>
+            <label style={{color:"#ccc", fontSize:11}}><input type="checkbox" checked={animLoop} onChange={e=>setAnimLoop(e.target.checked)}/> loop</label>
+          </div>
+          <div style={{display:"flex", gap:6}}>
+            <button onClick={()=>setIsingSim(v=>!v)} style={{background:isingSim?"#aa5c3c":"#2a2e45", border:"none", borderRadius:20, padding:"4px 12px", color:"white", fontSize:11}}>{isingSim ? "🌀 ISING ON" : "⏹️ ISING OFF"}</button>
+            <button onClick={()=>setShowMacro(v=>!v)} style={{background:"#2a2e45", border:"none", borderRadius:20, padding:"4px 12px", color:"white", fontSize:11}}>📜 MACRO</button>
+          </div>
+        </div>
+
+        {showMacro && (
+          <div style={{marginBottom:12, background:"#12141e", borderRadius:16, padding:10}}>
+            <textarea value={macroText} onChange={e=>setMacroText(e.target.value)} rows={2} style={{width:"100%", background:"#1e1f2c", color:"#f0d89a", fontFamily:"monospace", border:"1px solid #f5b642", borderRadius:8, padding:6}}/>
+            <div style={{display:"flex", gap:8, marginTop:6}}>
+              <button onClick={runMacro} style={{background:"#3a3f5e", border:"none", borderRadius:20, padding:"2px 12px", color:"white"}}>▶ RUN</button>
+              <span style={{color:macroOut.includes("❌")?"#f99":"#aaf", fontSize:11}}>{macroOut}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="gold-panel" style={{display:"grid", gridTemplateColumns:"minmax(260px, 320px) 1fr", gap:12, alignItems:"start"}}>
+          <div>
+            <div style={{fontSize:12, letterSpacing:1, color:"#ffcf6e", marginBottom:8}}>GOOSE CUBE VISUALIZER</div>
+            <canvas ref={visualizerRef} width={300} height={240} style={{width:"100%", borderRadius:14, border:"1px solid rgba(245,182,66,0.25)", background:"#090c14", display:"block"}} />
+          </div>
+          <div style={{display:"flex", flexDirection:"column", gap:8, color:"#d7d9e7"}}>
+            <div style={{fontSize:13, color:"#f4d28a"}}>The goose is stamped as an SM7-safe ASCII outline and held in memory as a depth stack.</div>
+            <div style={{fontSize:12, color:"#aeb5d0"}}>Sheets 31-33 form the center arc. From there the silhouette tapers toward both ends like a print stack, so the goose reads as volume inside the cube.</div>
+            <div style={{fontSize:11, color:"#8f97b6"}}>The cube sits in a goose egg, and the game toroids interpenetrate through nearby Ising density. Current quid mix: {interpenetration.topDensity}.</div>
+          </div>
+        </div>
+
+        <div className="gold-panel" style={{display:"grid", gridTemplateColumns:"1.1fr 1fr 1fr", gap:12, alignItems:"start"}}>
+          <div style={{display:"flex", flexDirection:"column", gap:8}}>
+            <div style={{fontSize:12, color:"#ffcf6e", letterSpacing:1}}>RECURSION ENGINE</div>
+            <div style={{display:"flex", gap:8, flexWrap:"wrap"}}>
+              <button className="quack-btn" onClick={honkEngine}>HONK</button>
+              <button onClick={toodlePond} style={{background:"#355c7d", border:"none", borderRadius:20, padding:"6px 16px", color:"#dff4ff", fontFamily:"monospace", cursor:"pointer"}}>TOODLE POND</button>
+            </div>
+            <div style={{fontSize:11, color:"#9aa6c8"}}>honk count: {honkCount} · recursion cycle: {recursionCycle} · pond: {pondState}</div>
+            <div style={{fontSize:15, color:"#9fd8ff", fontFamily:"monospace"}}>{pondRipples}</div>
+            <div style={{fontSize:11, color:"#7f8ab2"}}>Game toroids interpenetrate instead of looping closed. They mingle with the surrounding density quids around the goose cube.</div>
+          </div>
+
+          <div style={{display:"flex", flexDirection:"column", gap:8}}>
+            <div style={{fontSize:12, color:"#ffcf6e", letterSpacing:1}}>SEED JAR</div>
+            {seedPackets.map(seed => (
+              <button
+                key={seed.id}
+                onClick={() => plantSeed(seed)}
+                style={{
+                  background:"#171c28",
+                  border:"1px solid rgba(245,182,66,0.24)",
+                  borderRadius:12,
+                  padding:"8px 10px",
+                  color:"#e8ddb5",
+                  fontFamily:"monospace",
+                  textAlign:"left",
+                  cursor:"pointer"
+                }}
+              >
+                {seed.glyph} {seed.label} · S{seed.shell} · V{seed.vitality} · E{seed.echo}
+              </button>
+            ))}
+          </div>
+
+          <div style={{display:"flex", flexDirection:"column", gap:8}}>
+            <div style={{fontSize:12, color:"#ffcf6e", letterSpacing:1}}>SILLY GOOSE GARDEN</div>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8}}>
+              {plantedGarden.map((plot, index) => (
+                <div key={index} style={{
+                  minHeight:72,
+                  background:"#131a12",
+                  border:"1px solid rgba(119,168,83,0.28)",
+                  borderRadius:12,
+                  padding:"8px 10px",
+                  color: plot ? "#dff0c2" : "#70845a",
+                  fontFamily:"monospace"
+                }}>
+                  {plot ? (
+                    <>
+                      <div>{plot.glyph} {plot.label}</div>
+                      <div style={{fontSize:11, marginTop:6}}>stage: {plot.stage}</div>
+                      <div style={{fontSize:11}}>shell: S{plot.shell}</div>
+                    </>
+                  ) : (
+                    <div style={{fontSize:11, marginTop:18}}>empty plot</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Cell editor */}
+        <div style={{display:"flex", gap:8, marginBottom:8, alignItems:"center"}}>
+          <span style={{fontFamily:"monospace", fontSize:13, background:"#00000066", padding:"2px 10px", borderRadius:20, color:"#ffb347"}}>{colLabel(selC)}{selR+1}</span>
+          <input ref={formulaRef} value={editMode ? formula : (cellVal||"")} onChange={e=>editMode&&setFormula(e.target.value)} onFocus={()=>{if(!editMode){setEditMode(true); setFormula(cellVal||"");}}} onBlur={commitFormula} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault(); commitFormula();} if(e.key==="Escape"){setEditMode(false); setFormula("");}}} style={{flex:1, background:"#1b1d2b", border:"1px solid #4a4e6b", borderRadius:12, padding:"6px 12px", color:"#eedd99", fontFamily:"monospace"}} placeholder="value or =S2.A1" />
+        </div>
+
+        {/* Sheet tabs (Z-axis) */}
+        <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:6, flexWrap:"wrap"}}>
+          <span style={{fontSize:11, color:"#f4d28a", letterSpacing:1}}>CENTER ARC = S31 S32 S33</span>
+          <span style={{fontSize:10, color:"#8490b8"}}>print outward from the middle</span>
+        </div>
+        <div style={{display:"flex", gap:4, flexWrap:"wrap", marginBottom:10}}>
+          {Array.from({length: 32}, (_,i)=>i).map(i=> {
+            const isCenterArc = GOOSE_CENTER_SHEETS.includes(i);
+            const isActive = cur===i;
+            return <button key={i} onClick={()=>setCur(i)} style={{
+              background:isActive ? "#e67e22" : isCenterArc ? "#5a3f1d" : "#22252e",
+              border:isCenterArc ? "1px solid rgba(245,182,66,0.45)" : "none",
+              borderRadius:16,
+              padding:"2px 10px",
+              color:isActive ? "white" : isCenterArc ? "#ffd98a" : "#aaa",
+              fontSize:11,
+              cursor:"pointer",
+              boxShadow:isCenterArc ? "0 0 8px rgba(245,182,66,0.14)" : "none"
+            }}>{i+1}</button>;
+          })}
+          <span style={{color:"#666"}}>...</span>
+          {Array.from({length: 32}, (_,i)=>i+32).map(i=> {
+            const isCenterArc = GOOSE_CENTER_SHEETS.includes(i);
+            const isActive = cur===i;
+            return <button key={i} onClick={()=>setCur(i)} style={{
+              background:isActive ? "#e67e22" : isCenterArc ? "#5a3f1d" : "#22252e",
+              border:isCenterArc ? "1px solid rgba(245,182,66,0.45)" : "none",
+              borderRadius:16,
+              padding:"2px 10px",
+              color:isActive ? "white" : isCenterArc ? "#ffd98a" : "#aaa",
+              fontSize:11,
+              cursor:"pointer",
+              boxShadow:isCenterArc ? "0 0 8px rgba(245,182,66,0.14)" : "none"
+            }}>{i+1}</button>;
+          })}
+        </div>
+
+        {/* Grid display (2D slice of the cube) */}
+        <div className={`grid-container ${shake ? "shake-grid" : ""}`}>
+          <table style={{borderSpacing:0}}>
+            <thead><tr><th style={{width:36}}></th>{visCols.map(c=> <th key={c} style={{fontSize:9, color:"#8a8daa", fontWeight:400, width:14}}>{colLabel(c)}</th>)}</tr></thead>
+            <tbody>
+              {visRows.map(r=> <tr key={r}>
+                <td style={{textAlign:"right", paddingRight:6, fontSize:9, color:"#8a8daa", borderRight:"0.5px solid #333"}}>{r+1}</td>
+                {visCols.map(c=> {
+                  const ch = displayChar(cur, r, c);
+                  const isSel = (r===selR && c===selC);
+                  const col = cellColor(ch);
+                  return <td key={c} onClick={()=>{setSelR(r); setSelC(c); setFormula(sheets[cur][r][c]||"");}} style={{width:14, height:14, textAlign:"center", fontSize:11, fontFamily:"monospace", padding:0, background:isSel?"#4a2e1a":col?"#221c1c":"transparent", color:isSel?"#ffdd99":col||"#bbb", outline:isSel?"1px solid gold":"none", fontWeight:col?500:400}}>{ch===" "?"":ch}</td>;
+                })}
+              </tr>)}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Scroll & legend */}
+        <div style={{marginTop:10, display:"flex", gap:12, flexWrap:"wrap", alignItems:"center"}}>
+          <span style={{fontSize:10, color:"#aaa"}}>scroll Y:</span> <input type="range" min={0} max={ROWS-VISIBLE_ROWS} value={scrollR} onChange={e=>setScrollR(+e.target.value)} style={{width:100}}/>
+          <span style={{fontSize:10, color:"#aaa"}}>scroll X:</span> <input type="range" min={0} max={COLS-VISIBLE_COLS} value={scrollC} onChange={e=>setScrollC(+e.target.value)} style={{width:100}}/>
+          <div style={{display:"flex", gap:8, marginLeft:"auto", flexWrap:"wrap"}}>
+            {SHELL_CHARS.map(s=> <span key={s.char} style={{fontSize:10, color:s.color}}><b>{s.char}</b> {s.label}</span>)}
+            <span style={{fontSize:10, color:"#888"}}>density: {DENSITY.join("")}</span>
+          </div>
+        </div>
+        <div style={{fontSize:9, color:"#6a6e8a", textAlign:"center", marginTop:12}}>⚡ 64×246×246 scalar seed (Olympia SM7) · Golden Summon · Quack Quack · silly goose cube ⚡</div>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

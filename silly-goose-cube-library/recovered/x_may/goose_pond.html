@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Goose Pond 🪿</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;height:100vh;font-family:monospace;overflow:hidden;user-select:none}
+canvas{display:block;border:1px solid #1a2030;border-radius:4px}
+#hud{color:#6a7a5a;font-size:11px;margin-top:8px;text-align:center;line-height:2;letter-spacing:1px}
+#hud b{color:#c8b87a}
+#msg{font-size:14px;color:#e8c87a;text-shadow:0 0 12px #a87a20;
+  min-height:20px;margin-top:4px;text-align:center;letter-spacing:2px}
+#controls{font-size:10px;color:#3a4a2a;margin-top:4px;text-align:center}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud">temp: <b id="h-temp">300K</b> &nbsp;|&nbsp; state: <b id="h-state">WATER</b> &nbsp;|&nbsp; honks: <b id="h-honk">0</b> &nbsp;|&nbsp; skates: <b id="h-skates">NO</b></div>
+<div id="msg"></div>
+<div id="controls">[SPACE] HONK &nbsp; [WASD / arrows] move &nbsp; [R] reset</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+function resize(){
+  const s = Math.min(window.innerWidth-20, window.innerHeight-120, 600);
+  cv.width = s; cv.height = s;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── state ──────────────────────────────────────────────────
+const S = {
+  temp: 300, // Kelvin
+  honkCount: 0,
+  lastHonkTime: 0,
+  honkFreq: 0, // honks/sec rolling
+  hasSkates: false,
+  skatesFound: false,
+  shadowVisible: false,
+  eggDropped: false,
+  eggCracked: false,
+  eggX: 0, eggY: 0,
+  phase: 'WATER', // WATER | SLUSH | ICE | DEEP | ZERO
+  tick: 0,
+  msg: '', msgTimer: 0,
+
+  // goose
+  gx: 0.5, gy: 0.7,
+  gvx: 0, gvy: 0,
+  facing: 1, // 1=right -1=left
+  onIce: false,
+  sliding: false,
+
+  // skates location (shore)
+  skX: 0.15, skY: 0.88,
+
+  // shadow goose (phase-shifted)
+  sgx: 0.5, sgy: 0.45,
+  sgPhase: 0,
+
+  // ice cracks
+  cracks: [],
+
+  // honk ripples
+  ripples: [],
+
+  // pond freeze progress per cell (grid 20x20)
+  freeze: null,
+
+  // particles
+  particles: [],
+};
+
+// init freeze grid
+S.freeze = Array.from({length:20},()=>Array(20).fill(0));
+
+function tempToPhase(t){
+  if(t > 273) return 'WATER';
+  if(t > 200) return 'SLUSH';
+  if(t > 100) return 'ICE';
+  if(t > 1)   return 'DEEP';
+  return 'ZERO';
+}
+
+// ── input ──────────────────────────────────────────────────
+const keys = {};
+window.addEventListener('keydown', e=>{
+  keys[e.code] = true;
+  if(e.code === 'Space'){ e.preventDefault(); doHonk(); }
+  if(e.code === 'KeyR'){ resetGame(); }
+});
+window.addEventListener('keyup', e=>{ keys[e.code] = false; });
+
+// touch honk
+cv.addEventListener('touchstart', e=>{ e.preventDefault(); doHonk(); },{passive:false});
+
+let honkWindow = []; // timestamps
+
+function doHonk(){
+  const now = performance.now();
+  S.honkCount++;
+  S.lastHonkTime = now;
+  honkWindow.push(now);
+  honkWindow = honkWindow.filter(t=>now-t<2000);
+  S.honkFreq = honkWindow.length / 2;
+
+  // cooling: base -8K + freq bonus
+  const cool = 8 + S.honkFreq * 4;
+  S.temp = Math.max(0, S.temp - cool);
+
+  // ripple
+  S.ripples.push({ x: S.gx, y: S.gy, r: 0, max: 0.15, alpha: 1 });
+
+  // bloom freeze cells near goose
+  const gxi = Math.floor(S.gx*20), gyi = Math.floor(S.gy*20);
+  for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++){
+    const nx=gxi+dx, ny=gyi+dy;
+    if(nx>=0&&nx<20&&ny>=0&&ny<20){
+      S.freeze[ny][nx] = Math.min(1, S.freeze[ny][nx]+0.15/(Math.abs(dx)+Math.abs(dy)+1));
+    }
+  }
+
+  // check interactions
+  checkPickupSkates();
+  checkCrackIce();
+
+  showMsg(S.temp < 1 ? 'ABSOLUTE ZERO' : S.temp < 50 ? 'DEEP FREEZE' : 'HONK');
+}
+
+function checkPickupSkates(){
+  if(S.hasSkates || S.phase === 'WATER') return;
+  const dist = Math.hypot(S.gx-S.skX, S.gy-S.skY);
+  if(dist < 0.06){
+    S.hasSkates = true;
+    S.skatesFound = true;
+    showMsg('✦ SKATES FOUND');
+    spawnParticles(S.skX, S.skY, '#c8b87a', 20);
+  }
+}
+
+function checkCrackIce(){
+  if(!S.hasSkates || S.phase !== 'ZERO') return;
+  const dist = Math.hypot(S.gx-S.sgx, S.gy-S.sgy);
+  if(dist < 0.08 && !S.eggDropped){
+    // crack!
+    for(let i=0;i<8;i++){
+      const angle = (i/8)*Math.PI*2;
+      S.cracks.push({ x:S.sgx, y:S.sgy, angle, len:0.02+Math.random()*0.08 });
+    }
+    S.eggDropped = true;
+    S.eggX = S.sgx; S.eggY = S.sgy;
+    spawnParticles(S.sgx, S.sgy, '#8060c0', 40);
+    showMsg('✦ ICE CRACKED — SHADOW EGG');
+  }
+  if(S.eggDropped && !S.eggCracked){
+    const edist = Math.hypot(S.gx-S.eggX, S.gy-S.eggY);
+    if(edist < 0.05){
+      S.eggCracked = true;
+      spawnParticles(S.eggX, S.eggY, '#e8c87a', 60);
+      showMsg('🥚 STEGO EGG OPENED — LORE ENCODED');
+    }
+  }
+}
+
+function spawnParticles(x,y,color,n){
+  for(let i=0;i<n;i++){
+    const angle=Math.random()*Math.PI*2, spd=0.005+Math.random()*0.015;
+    S.particles.push({x,y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,
+      color,alpha:1,life:0.8+Math.random()*0.4});
+  }
+}
+
+function showMsg(txt){ S.msg=txt; S.msgTimer=90; }
+
+// ── physics ────────────────────────────────────────────────
+function physTick(){
+  S.tick++;
+  const now = performance.now();
+
+  // warming: if no honk for >1.5s, temp rises back
+  if(now - S.lastHonkTime > 1500 && S.temp < 300){
+    const warmRate = S.phase==='ZERO'?0.05 : S.phase==='DEEP'?0.3 : 0.8;
+    S.temp = Math.min(300, S.temp + warmRate);
+    // decay freeze grid slowly
+    if(S.tick%3===0){
+      for(let y=0;y<20;y++) for(let x=0;x<20;x++){
+        S.freeze[y][x] = Math.max(0,S.freeze[y][x]-0.005);
+      }
+    }
+  }
+
+  S.phase = tempToPhase(S.temp);
+  S.onIce = S.phase==='ICE'||S.phase==='DEEP'||S.phase==='ZERO';
+  S.shadowVisible = S.phase==='ZERO';
+
+  // goose movement
+  const speed = S.hasSkates && S.onIce ? 0.012 : 0.007;
+  const friction = S.hasSkates && S.onIce ? 0.96 : 0.8;
+  const inPond = isInPond(S.gx, S.gy);
+
+  // can't enter liquid pond without skates on ice
+  let moveX=0, moveY=0;
+  if(keys['ArrowLeft']||keys['KeyA']){moveX=-1;S.facing=-1;}
+  if(keys['ArrowRight']||keys['KeyD']){moveX=1;S.facing=1;}
+  if(keys['ArrowUp']||keys['KeyW']) moveY=-1;
+  if(keys['ArrowDown']||keys['KeyS']) moveY=1;
+
+  if(moveX||moveY){
+    const len=Math.hypot(moveX,moveY);
+    S.gvx+=moveX/len*speed;
+    S.gvy+=moveY/len*speed;
+  }
+
+  S.gvx*=friction; S.gvy*=friction;
+
+  // clamp speed
+  const spd=Math.hypot(S.gvx,S.gvy);
+  const maxSpd=S.hasSkates&&S.onIce?0.025:0.015;
+  if(spd>maxSpd){S.gvx*=maxSpd/spd;S.gvy*=maxSpd/spd;}
+
+  let nx=S.gx+S.gvx, ny=S.gy+S.gvy;
+
+  // pond collision: can only be in pond if ice
+  if(isInPond(nx,ny)&&!S.onIce){
+    // bounce back
+    if(isInPond(nx,S.gy)) S.gvx*=-0.5;
+    if(isInPond(S.gx,ny)) S.gvy*=-0.5;
+    nx=S.gx; ny=S.gy;
+  }
+
+  // world bounds
+  nx=Math.max(0.01,Math.min(0.99,nx));
+  ny=Math.max(0.01,Math.min(0.99,ny));
+  S.gx=nx; S.gy=ny;
+
+  // ripples expand/fade
+  S.ripples.forEach(r=>{r.r+=0.003;r.alpha=1-r.r/r.max;});
+  S.ripples=S.ripples.filter(r=>r.alpha>0);
+
+  // particles
+  S.particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.0002;p.alpha-=0.02/p.life;});
+  S.particles=S.particles.filter(p=>p.alpha>0);
+
+  // shadow goose drifts slightly
+  S.sgPhase+=0.02;
+  S.sgx=0.5+Math.sin(S.sgPhase*0.7)*0.12;
+  S.sgy=0.45+Math.cos(S.sgPhase*0.5)*0.08;
+
+  if(S.msgTimer>0) S.msgTimer--;
+
+  // auto-spawn skates visual once slush
+  if(S.phase!=='WATER' && !S.skatesFound){
+    // skates glow
+  }
+
+  // update DOM HUD
+  document.getElementById('h-temp').textContent = S.temp.toFixed(1)+'K';
+  document.getElementById('h-state').textContent = S.phase;
+  document.getElementById('h-honk').textContent = S.honkCount;
+  document.getElementById('h-skates').textContent = S.hasSkates?'YES ⛸':'NO';
+  document.getElementById('msg').textContent = S.msgTimer>0?S.msg:'';
+}
+
+function isInPond(x,y){
+  // elliptical pond centered at 0.5, 0.45
+  const dx=(x-0.5)/0.38, dy=(y-0.45)/0.28;
+  return dx*dx+dy*dy < 1;
+}
+
+// ── render ─────────────────────────────────────────────────
+function render(){
+  const W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+
+  const px=x=>x*W, py=y=>y*H;
+
+  // sky/ground
+  const skyGrad=ctx.createLinearGradient(0,0,0,H);
+  const t01=1-S.temp/300;
+  const r=Math.floor(10+t01*5), g=Math.floor(10+t01*15), b=Math.floor(15+t01*40);
+  skyGrad.addColorStop(0,`rgb(${r},${g},${b+20})`);
+  skyGrad.addColorStop(1,`rgb(${r+5},${g+10},${b})`);
+  ctx.fillStyle=skyGrad;
+  ctx.fillRect(0,0,W,H);
+
+  // shore / grass
+  ctx.fillStyle=`hsl(${80+t01*20},${30-t01*20}%,${20-t01*8}%)`;
+  ctx.fillRect(0,0,W,H);
+
+  // pond base
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(px(0.5),py(0.45),px(0.38),py(0.28),0,0,Math.PI*2);
+  ctx.clip();
+
+  // water/ice gradient
+  const pondGrad=ctx.createRadialGradient(px(0.5),py(0.45),0,px(0.5),py(0.45),px(0.38));
+  if(S.phase==='WATER'){
+    pondGrad.addColorStop(0,'#1a4060');
+    pondGrad.addColorStop(1,'#0d2535');
+  } else if(S.phase==='SLUSH'){
+    pondGrad.addColorStop(0,'#2a5060');
+    pondGrad.addColorStop(1,'#1a3545');
+  } else if(S.phase==='ICE'){
+    pondGrad.addColorStop(0,'#8ab8d0');
+    pondGrad.addColorStop(1,'#5090b0');
+  } else if(S.phase==='DEEP'){
+    pondGrad.addColorStop(0,'#c0dce8');
+    pondGrad.addColorStop(1,'#80b0c8');
+  } else { // ZERO
+    pondGrad.addColorStop(0,'#e8f4ff');
+    pondGrad.addColorStop(1,'#b0d0e8');
+  }
+  ctx.fillStyle=pondGrad;
+  ctx.fillRect(0,0,W,H);
+
+  // freeze cells
+  for(let gy=0;gy<20;gy++) for(let gx=0;gx<20;gx++){
+    const f=S.freeze[gy][gx];
+    if(f<0.05) continue;
+    const wx=(gx/20)*W, wy=(gy/20)*H;
+    ctx.fillStyle=`rgba(200,230,245,${f*0.6})`;
+    ctx.fillRect(wx,wy,W/20+1,H/20+1);
+  }
+
+  // shadow goose UNDER ice (only at ZERO)
+  if(S.shadowVisible){
+    const alpha=Math.max(0,1-S.temp/10)*0.7;
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    drawShadowGoose(px(S.sgx),py(S.sgy),W*0.045);
+    ctx.restore();
+  }
+
+  // ripples (in water)
+  if(S.phase==='WATER'||S.phase==='SLUSH'){
+    S.ripples.forEach(r=>{
+      ctx.beginPath();
+      ctx.ellipse(px(r.x),py(r.y),px(r.r),py(r.r)*0.6,0,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(100,180,220,${r.alpha*0.6})`;
+      ctx.lineWidth=1;
+      ctx.stroke();
+    });
+  }
+
+  // ice cracks
+  S.cracks.forEach(c=>{
+    ctx.beginPath();
+    ctx.moveTo(px(c.x),py(c.y));
+    ctx.lineTo(px(c.x+Math.cos(c.angle)*c.len),py(c.y+Math.sin(c.angle)*c.len*0.7));
+    ctx.strokeStyle='rgba(20,20,40,0.7)';
+    ctx.lineWidth=1.5;
+    ctx.stroke();
+  });
+
+  ctx.restore(); // end pond clip
+
+  // pond edge
+  ctx.beginPath();
+  ctx.ellipse(px(0.5),py(0.45),px(0.38),py(0.28),0,0,Math.PI*2);
+  ctx.strokeStyle=S.onIce?'rgba(160,210,240,0.5)':'rgba(40,100,140,0.4)';
+  ctx.lineWidth=2;
+  ctx.stroke();
+
+  // water shimmer when not frozen
+  if(S.phase==='WATER'||S.phase==='SLUSH'){
+    for(let i=0;i<6;i++){
+      const wx=0.3+Math.sin(S.tick*0.05+i)*0.25;
+      const wy=0.35+Math.cos(S.tick*0.04+i*1.3)*0.1;
+      if(!isInPond(wx,wy)) continue;
+      ctx.beginPath();
+      ctx.moveTo(px(wx),py(wy));
+      ctx.lineTo(px(wx+0.03),py(wy));
+      ctx.strokeStyle=`rgba(100,180,220,${0.2+Math.sin(S.tick*0.08+i)*0.1})`;
+      ctx.lineWidth=1.5;
+      ctx.stroke();
+    }
+  }
+
+  // skates on shore (if not picked up)
+  if(!S.hasSkates){
+    drawSkates(px(S.skX),py(S.skY),W*0.035,S.phase!=='WATER');
+  }
+
+  // egg
+  if(S.eggDropped){
+    drawEgg(px(S.eggX),py(S.eggY),W*0.03,S.eggCracked);
+  }
+
+  // particles
+  S.particles.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(px(p.x),py(p.y),2,0,Math.PI*2);
+    ctx.fillStyle=p.color;
+    ctx.globalAlpha=p.alpha;
+    ctx.fill();
+    ctx.globalAlpha=1;
+  });
+
+  // goose
+  drawGoose(px(S.gx),py(S.gy),W*0.05,S.facing,S.hasSkates,S.onIce);
+
+  // temp thermometer
+  drawTherm(W-28,H*0.15,16,H*0.5);
+
+  // phase label overlay
+  if(S.phase==='ZERO'){
+    ctx.font=`bold ${W*0.025}px monospace`;
+    ctx.fillStyle='rgba(160,200,255,0.15)';
+    ctx.textAlign='center';
+    ctx.fillText('0K',px(0.5),py(0.45));
+  }
+}
+
+function drawGoose(x,y,r,facing,skates,onIce){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.scale(facing,1);
+  // body
+  ctx.beginPath();
+  ctx.ellipse(0,0,r,r*0.7,0,0,Math.PI*2);
+  ctx.fillStyle='#f0ead8';
+  ctx.fill();
+  ctx.strokeStyle='#c8b89a';
+  ctx.lineWidth=1;
+  ctx.stroke();
+  // neck
+  ctx.beginPath();
+  ctx.moveTo(r*0.5,0);
+  ctx.quadraticCurveTo(r*0.9,-r*0.6,r*0.7,-r*1.1);
+  ctx.lineWidth=r*0.4;
+  ctx.strokeStyle='#f0ead8';
+  ctx.stroke();
+  // head
+  ctx.beginPath();
+  ctx.arc(r*0.7,-r*1.2,r*0.28,0,Math.PI*2);
+  ctx.fillStyle='#f0ead8';
+  ctx.fill();
+  // eye
+  ctx.beginPath();
+  ctx.arc(r*0.85,-r*1.25,r*0.07,0,Math.PI*2);
+  ctx.fillStyle='#1a1a1a';
+  ctx.fill();
+  // beak
+  ctx.beginPath();
+  ctx.moveTo(r*0.97,-r*1.2);
+  ctx.lineTo(r*1.25,-r*1.15);
+  ctx.lineTo(r*0.97,-r*1.1);
+  ctx.fillStyle='#d4882a';
+  ctx.fill();
+  // skates
+  if(skates){
+    ctx.strokeStyle='#a0c0d0';
+    ctx.lineWidth=r*0.15;
+    ctx.beginPath();
+    ctx.moveTo(-r*0.3,r*0.6);
+    ctx.lineTo(r*0.5,r*0.6);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-r*0.5,r*0.5);
+    ctx.lineTo(r*0.2,r*0.5);
+    ctx.stroke();
+  }
+  // slide trail
+  if(onIce&&skates&&Math.hypot(S.gvx,S.gvy)>0.003){
+    ctx.save();
+    ctx.scale(-1,1);
+    ctx.strokeStyle='rgba(180,220,240,0.4)';
+    ctx.lineWidth=1;
+    ctx.setLineDash([3,4]);
+    ctx.beginPath();
+    ctx.moveTo(0,r*0.55);
+    ctx.lineTo(r*1.5,r*0.55);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawShadowGoose(x,y,r){
+  ctx.save();
+  ctx.translate(x,y);
+  // ghostly inverted goose
+  ctx.globalAlpha*=0.6;
+  ctx.scale(1,-1); // flipped = under ice
+  ctx.beginPath();
+  ctx.ellipse(0,0,r,r*0.7,0,0,Math.PI*2);
+  ctx.fillStyle='#6030a0';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(r*0.7,-r*1.2,r*0.28,0,Math.PI*2);
+  ctx.fillStyle='#8050c0';
+  ctx.fill();
+  // glow
+  const grad=ctx.createRadialGradient(0,0,0,0,0,r*2);
+  grad.addColorStop(0,'rgba(120,60,220,0.4)');
+  grad.addColorStop(1,'rgba(120,60,220,0)');
+  ctx.beginPath();
+  ctx.arc(0,0,r*2,0,Math.PI*2);
+  ctx.fillStyle=grad;
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawSkates(x,y,r,glow){
+  ctx.save();
+  ctx.translate(x,y);
+  if(glow){
+    const grad=ctx.createRadialGradient(0,0,0,0,0,r*2);
+    grad.addColorStop(0,'rgba(200,180,60,0.4)');
+    grad.addColorStop(1,'rgba(200,180,60,0)');
+    ctx.beginPath(); ctx.arc(0,0,r*2,0,Math.PI*2);
+    ctx.fillStyle=grad; ctx.fill();
+  }
+  ctx.fillStyle='#8ab0c0';
+  ctx.fillRect(-r,-r*0.3,r*2,r*0.5);
+  ctx.strokeStyle='#c8d8e0';
+  ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(-r,r*0.2); ctx.lineTo(r*1.2,r*0.2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-r*0.8,-r*0.3); ctx.lineTo(-r*0.8,r*0.8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(r*0.4,-r*0.3); ctx.lineTo(r*0.4,r*0.8); ctx.stroke();
+  ctx.fillStyle='#c8b87a';
+  ctx.font=`${r*0.9}px monospace`;
+  ctx.textAlign='center';
+  ctx.fillText('⛸',0,r*0.3);
+  ctx.restore();
+}
+
+function drawEgg(x,y,r,cracked){
+  ctx.save();
+  ctx.translate(x,y);
+  if(!cracked){
+    const grad=ctx.createRadialGradient(-r*0.3,-r*0.3,0,0,0,r*1.2);
+    grad.addColorStop(0,'#c0a0e0');
+    grad.addColorStop(1,'#602090');
+    ctx.beginPath();
+    ctx.ellipse(0,0,r,r*1.3,0,0,Math.PI*2);
+    ctx.fillStyle=grad; ctx.fill();
+    ctx.strokeStyle='rgba(180,120,255,0.6)';
+    ctx.lineWidth=1.5; ctx.stroke();
+    // rune
+    ctx.fillStyle='rgba(240,220,255,0.8)';
+    ctx.font=`${r}px monospace`;
+    ctx.textAlign='center';
+    ctx.fillText('◈',0,r*0.4);
+  } else {
+    // cracked — show stego
+    ctx.strokeStyle='#6030a0'; ctx.lineWidth=1.5;
+    const shards=[[0,-r*1.3],[r*1,0],[0,r*1.3],[-r*1,0]];
+    shards.forEach((s,i)=>{
+      ctx.save();
+      ctx.rotate(i*Math.PI/2);
+      ctx.translate(r*0.3,0);
+      ctx.beginPath();
+      ctx.ellipse(0,0,r*0.7,r*0.9,0,0,Math.PI);
+      ctx.fillStyle=`rgba(${80+i*20},${40+i*15},${120+i*20},0.7)`;
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+    });
+    // glow center
+    const g2=ctx.createRadialGradient(0,0,0,0,0,r*1.5);
+    g2.addColorStop(0,'rgba(220,200,255,0.8)');
+    g2.addColorStop(1,'rgba(100,60,180,0)');
+    ctx.beginPath(); ctx.arc(0,0,r*1.5,0,Math.PI*2);
+    ctx.fillStyle=g2; ctx.fill();
+    ctx.fillStyle='#e8d870'; ctx.font=`${r*1.2}px monospace`;
+    ctx.textAlign='center'; ctx.fillText('🪿',0,r*0.5);
+  }
+  ctx.restore();
+}
+
+function drawTherm(x,y,w,h){
+  const t=S.temp/300;
+  ctx.fillStyle='rgba(10,10,20,0.6)';
+  ctx.roundRect(x-2,y-2,w+4,h+4,4);
+  ctx.fill();
+  // track
+  ctx.fillStyle='#1a2030';
+  ctx.fillRect(x+4,y,w-8,h);
+  // fill
+  const fh=h*t;
+  const col=`hsl(${t*240},80%,${30+t*30}%)`;
+  ctx.fillStyle=col;
+  ctx.fillRect(x+4,y+h-fh,w-8,fh);
+  // label
+  ctx.fillStyle='#6a7a5a';
+  ctx.font='8px monospace';
+  ctx.textAlign='center';
+  ctx.fillText('300K',x+w/2,y-2);
+  ctx.fillText('0K',x+w/2,y+h+10);
+  // current
+  ctx.fillStyle='#c8b87a';
+  ctx.fillText(Math.round(S.temp),x+w/2,y+h-fh-3);
+}
+
+function resetGame(){
+  Object.assign(S,{
+    temp:300,honkCount:0,lastHonkTime:0,honkFreq:0,
+    hasSkates:false,skatesFound:false,shadowVisible:false,
+    eggDropped:false,eggCracked:false,
+    phase:'WATER',tick:0,msg:'',msgTimer:0,
+    gx:0.5,gy:0.7,gvx:0,gvy:0,facing:1,
+    cracks:[],ripples:[],particles:[],
+    sgx:0.5,sgy:0.45,sgPhase:0,
+    skX:0.15,skY:0.88,
+  });
+  S.freeze=Array.from({length:20},()=>Array(20).fill(0));
+  honkWindow=[];
+}
+
+function loop(){
+  physTick();
+  render();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>

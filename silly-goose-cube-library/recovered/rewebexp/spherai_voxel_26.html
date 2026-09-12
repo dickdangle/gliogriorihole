@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Spherai Voxel 26</title>
+    <style>
+        :root {
+            --bg-deep: #040812;
+            --bg-mid: #0d1526;
+            --panel: rgba(8, 15, 28, 0.82);
+            --panel-strong: rgba(12, 22, 40, 0.92);
+            --line: rgba(156, 197, 255, 0.28);
+            --text-main: #ecf4ff;
+            --text-soft: #9bb2d8;
+            --accent: #8ed2ff;
+            --accent-strong: #5bf3db;
+            --focus: #ffd98a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(53, 95, 168, 0.22), transparent 28%),
+                radial-gradient(circle at 80% 15%, rgba(51, 183, 152, 0.18), transparent 24%),
+                radial-gradient(circle at 50% 80%, rgba(90, 72, 164, 0.14), transparent 30%),
+                linear-gradient(180deg, var(--bg-mid), var(--bg-deep));
+            color: var(--text-main);
+        }
+
+        #info {
+            position: absolute;
+            top: 18px;
+            left: 18px;
+            max-width: 420px;
+            padding: 16px 18px;
+            border-radius: 18px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+            backdrop-filter: blur(12px);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #info h1 {
+            margin: 0 0 8px;
+            font-size: 1rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--accent-strong);
+        }
+
+        #info p {
+            margin: 0;
+            line-height: 1.45;
+            color: var(--text-soft);
+            font-size: 0.95rem;
+        }
+
+        #controls {
+            position: absolute;
+            left: 18px;
+            right: 18px;
+            bottom: 18px;
+            display: grid;
+            gap: 14px;
+            padding: 16px 18px;
+            border-radius: 22px;
+            background: var(--panel-strong);
+            border: 1px solid var(--line);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(14px);
+            z-index: 20;
+        }
+
+        .control-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            justify-content: space-between;
+        }
+
+        .control-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+
+        button {
+            border: 1px solid rgba(141, 210, 255, 0.45);
+            background: linear-gradient(180deg, rgba(32, 55, 90, 0.95), rgba(12, 24, 45, 0.95));
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            font: inherit;
+            letter-spacing: 0.03em;
+            transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            background: linear-gradient(180deg, rgba(46, 78, 125, 0.98), rgba(18, 34, 59, 0.98));
+            border-color: rgba(91, 243, 219, 0.7);
+        }
+
+        button.is-active {
+            background: linear-gradient(180deg, rgba(37, 119, 124, 0.98), rgba(16, 70, 80, 0.98));
+            border-color: rgba(91, 243, 219, 0.9);
+            color: #f4fffe;
+        }
+
+        label {
+            color: var(--text-soft);
+            font-size: 0.86rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        input[type="range"] {
+            width: 148px;
+            accent-color: var(--accent-strong);
+        }
+
+        .chip {
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-soft);
+            font-size: 0.8rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .legend span {
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 0.78rem;
+            letter-spacing: 0.04em;
+        }
+
+        .mono {
+            font-family: "Consolas", "Courier New", monospace;
+        }
+
+        @media (max-width: 900px) {
+            #controls {
+                gap: 12px;
+            }
+
+            .control-row {
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>Spherai Voxel 26</h1>
+        <p>
+            26 sheet shells, warped from workbook cube space into a nested Spherai volume.
+            Drag to orbit, right-drag to pan, scroll to zoom.
+            <span class="mono" id="hudFocus">Sheet 01 / Fire</span>
+        </p>
+    </div>
+
+    <div id="controls">
+        <div class="control-row">
+            <div class="control-group">
+                <button id="btnGeometry" class="is-active">Sphere Warp</button>
+                <button id="btnView">All 26 Sheets</button>
+                <button id="btnSweep">Lightspeed Sweep</button>
+                <button id="btnPulse">Resonance Drift</button>
+            </div>
+            <div class="control-group">
+                <span class="chip mono" id="hudMode">Sphere / all sheets</span>
+                <span class="chip mono" id="hudCount">0 voxels</span>
+                <span class="chip mono" id="hudDominant">dominant: quiet</span>
+            </div>
+        </div>
+
+        <div class="control-row">
+            <div class="control-group">
+                <label for="densityThresh">Density threshold</label>
+                <input type="range" id="densityThresh" min="0" max="10" step="1" value="4">
+                <span class="mono" id="threshVal">>= 4</span>
+            </div>
+            <div class="control-group">
+                <label for="focusSheet">Focus sheet</label>
+                <input type="range" id="focusSheet" min="1" max="26" step="1" value="1">
+                <span class="mono" id="focusVal">01</span>
+            </div>
+        </div>
+
+        <div class="legend mono" id="legend"></div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from "three";
+        import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+        const SHEETS = 26;
+        const ROWS = 96;
+        const COLS = 96;
+        const INNER_RADIUS = 18;
+        const OUTER_RADIUS = 82;
+        const DENSITY = ["@", "#", "%", "&", "*", "+", "=", "-", ".", ",", " "];
+        const DEFAULT_COLOR = 0x8eb7ff;
+        const SHELL_LAYERS = [
+            { char: "@", name: "Fire", color: 0xc0392b },
+            { char: "#", name: "Magma", color: 0xe67e22 },
+            { char: "%", name: "Earth", color: 0x8c6b29 },
+            { char: "&", name: "Wood", color: 0x2cab63 },
+            { char: "*", name: "Water", color: 0x2a7bd8 },
+            { char: "+", name: "Air", color: 0x84d7ff },
+            { char: "=", name: "Aether", color: 0x9c74ff },
+            { char: ".", name: "Void", color: 0x4e5f78 },
+        ];
+        const SHELL_META = Object.fromEntries(SHELL_LAYERS.map((layer) => [layer.char, layer]));
+
+        let geometryMode = "sphere";
+        let displayMode = "all";
+        let densityThreshold = 4;
+        let focusSheet = 0;
+        let lightSpeedActive = false;
+        let fieldPulseActive = false;
+        let currentGroup = null;
+        let currentGuide = null;
+        let scene;
+        let camera;
+        let renderer;
+        let controls;
+        let starField;
+
+        const clock = new THREE.Clock();
+        const materialCache = new Map();
+        const focusSlider = document.getElementById("focusSheet");
+        const densitySlider = document.getElementById("densityThresh");
+
+        function shellInfoForSheet(sheetIndex) {
+            return SHELL_LAYERS[sheetIndex % SHELL_LAYERS.length];
+        }
+
+        function seededScalar(z, y, x, seed = 26) {
+            const zNorm = z / Math.max(1, SHEETS - 1);
+            const yNorm = y / Math.max(1, ROWS - 1);
+            const xNorm = x / Math.max(1, COLS - 1);
+
+            let value =
+                Math.sin(zNorm * 15.7 + seed * 0.14) * 0.33 +
+                Math.cos(yNorm * 12.4 - zNorm * 5.2) * 0.24 +
+                Math.sin(xNorm * 14.6 + zNorm * 3.8) * 0.21 +
+                Math.sin((x + y + z * 11) * 0.073) * 0.16 +
+                Math.cos((x - y + z * 7) * 0.041) * 0.11;
+
+            value = (value + 1.15) / 2.3;
+            value = Math.max(0, Math.min(0.9999, value));
+            const index = Math.floor(value * DENSITY.length);
+            return DENSITY[Math.min(index, DENSITY.length - 1)];
+        }
+
+        function densityIndex(char) {
+            const index = DENSITY.indexOf(char);
+            return index >= 0 ? index : DENSITY.length - 1;
+        }
+
+        function colorForChar(char) {
+            return (SHELL_META[char] || { color: DEFAULT_COLOR }).color;
+        }
+
+        function getMaterial(colorHex) {
+            if (!materialCache.has(colorHex)) {
+                materialCache.set(
+                    colorHex,
+                    new THREE.MeshStandardMaterial({
+                        color: colorHex,
+                        emissive: colorHex,
+                        emissiveIntensity: 0.14,
+                        roughness: 0.42,
+                        metalness: 0.12,
+                        transparent: true,
+                        opacity: 0.93,
+                    }),
+                );
+            }
+            return materialCache.get(colorHex);
+        }
+
+        function shouldRenderSheet(sheetIndex) {
+            return displayMode === "all" || sheetIndex === focusSheet;
+        }
+
+        function samplingStep() {
+            return displayMode === "all" ? 5 : 3;
+        }
+
+        function cubePosition(sheetIndex, row, col, step) {
+            const spacingXY = step * 0.85;
+            const spacingZ = 4.8;
+            return new THREE.Vector3(
+                (col - COLS / 2) * spacingXY,
+                (ROWS / 2 - row) * spacingXY,
+                (sheetIndex - (SHEETS - 1) / 2) * spacingZ,
+            );
+        }
+
+        function spherePosition(sheetIndex, row, col, density) {
+            const sheetT = sheetIndex / Math.max(1, SHEETS - 1);
+            const theta = ((row + 0.5) / ROWS) * Math.PI;
+            const phi = ((col + 0.5) / COLS) * Math.PI * 2;
+            const baseRadius = INNER_RADIUS + sheetT * (OUTER_RADIUS - INNER_RADIUS);
+            const densityLift = (DENSITY.length - 1 - density) * 0.34;
+            const braid = Math.sin(phi * 3.0 + theta * 2.4 + sheetIndex * 0.41) * 1.2;
+            const radius = baseRadius + densityLift + braid;
+            const sinTheta = Math.sin(theta);
+            return new THREE.Vector3(
+                radius * sinTheta * Math.cos(phi),
+                radius * Math.cos(theta),
+                radius * sinTheta * Math.sin(phi),
+            );
+        }
+
+        function voxelPosition(sheetIndex, row, col, density, step) {
+            if (geometryMode === "cube") {
+                return cubePosition(sheetIndex, row, col, step);
+            }
+            return spherePosition(sheetIndex, row, col, density);
+        }
+
+        function disposeCurrentGroup() {
+            if (!currentGroup) {
+                return;
+            }
+            scene.remove(currentGroup);
+            if (currentGroup.userData.geometry) {
+                currentGroup.userData.geometry.dispose();
+            }
+            currentGroup = null;
+        }
+
+        function disposeCurrentGuide() {
+            if (!currentGuide) {
+                return;
+            }
+            scene.remove(currentGuide);
+            if (currentGuide.userData.geometry) {
+                currentGuide.userData.geometry.dispose();
+            }
+            if (currentGuide.userData.material) {
+                currentGuide.userData.material.dispose();
+            }
+            currentGuide = null;
+        }
+
+        function buildGuide() {
+            disposeCurrentGuide();
+            if (geometryMode !== "sphere") {
+                return;
+            }
+
+            const focusInfo = shellInfoForSheet(focusSheet);
+            const radius =
+                INNER_RADIUS + (focusSheet / Math.max(1, SHEETS - 1)) * (OUTER_RADIUS - INNER_RADIUS) + 1.5;
+            const geometry = new THREE.SphereGeometry(radius, 32, 18);
+            const material = new THREE.MeshBasicMaterial({
+                color: focusInfo.color,
+                wireframe: true,
+                transparent: true,
+                opacity: displayMode === "all" ? 0.06 : 0.18,
+            });
+            const guide = new THREE.Mesh(geometry, material);
+            guide.userData.geometry = geometry;
+            guide.userData.material = material;
+            scene.add(guide);
+            currentGuide = guide;
+        }
+
+        function updateHud(visibleCount, dominantChar) {
+            const focusInfo = shellInfoForSheet(focusSheet);
+            const dominantInfo = SHELL_META[dominantChar] || null;
+
+            document.getElementById("hudFocus").textContent =
+                `Sheet ${String(focusSheet + 1).padStart(2, "0")} / ${focusInfo.name}`;
+            document.getElementById("hudMode").textContent =
+                `${geometryMode === "sphere" ? "Sphere" : "Cube"} / ${displayMode === "all" ? "all sheets" : "single shell"}`;
+            document.getElementById("hudCount").textContent = `${visibleCount.toLocaleString()} voxels`;
+            document.getElementById("hudDominant").textContent =
+                `dominant: ${dominantInfo ? dominantInfo.name.toLowerCase() : "quiet"}`;
+            document.getElementById("focusVal").textContent = String(focusSheet + 1).padStart(2, "0");
+        }
+
+        function syncControls() {
+            const geometryButton = document.getElementById("btnGeometry");
+            const viewButton = document.getElementById("btnView");
+            const sweepButton = document.getElementById("btnSweep");
+            const pulseButton = document.getElementById("btnPulse");
+
+            geometryButton.textContent = geometryMode === "sphere" ? "Sphere Warp" : "Cube Lattice";
+            viewButton.textContent = displayMode === "all" ? "All 26 Sheets" : "Single Sheet";
+            sweepButton.textContent = lightSpeedActive ? "Stop Sweep" : "Lightspeed Sweep";
+            pulseButton.textContent = fieldPulseActive ? "Resonance Drift On" : "Resonance Drift";
+
+            geometryButton.classList.toggle("is-active", geometryMode === "sphere");
+            viewButton.classList.toggle("is-active", displayMode === "single");
+            sweepButton.classList.toggle("is-active", lightSpeedActive);
+            pulseButton.classList.toggle("is-active", fieldPulseActive);
+
+            densitySlider.value = String(densityThreshold);
+            document.getElementById("threshVal").textContent = `>= ${densityThreshold}`;
+            focusSlider.value = String(focusSheet + 1);
+            document.getElementById("focusVal").textContent = String(focusSheet + 1).padStart(2, "0");
+        }
+
+        function rebuildVoxels() {
+            disposeCurrentGroup();
+            const group = new THREE.Group();
+            const step = samplingStep();
+            const visibleCounts = new Map();
+            let visibleCount = 0;
+            let dominantChar = null;
+
+            const voxelSize = geometryMode === "sphere" ? (displayMode === "all" ? 1.7 : 2.2) : step * 0.78;
+            const geometry = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+
+            // Each sampled point becomes a small cube whose position is warped into shell space.
+            for (let sheetIndex = 0; sheetIndex < SHEETS; sheetIndex += 1) {
+                if (!shouldRenderSheet(sheetIndex)) {
+                    continue;
+                }
+
+                for (let row = 0; row < ROWS; row += step) {
+                    for (let col = 0; col < COLS; col += step) {
+                        const sampleRow = Math.min(ROWS - 1, row + Math.floor(step * 0.5));
+                        const sampleCol = Math.min(COLS - 1, col + Math.floor(step * 0.5));
+                        const char = seededScalar(sheetIndex, sampleRow, sampleCol);
+                        const density = densityIndex(char);
+                        if (density < densityThreshold) {
+                            continue;
+                        }
+
+                        const position = voxelPosition(sheetIndex, sampleRow, sampleCol, density, step);
+                        const normal = position.lengthSq() > 0.0001 ? position.clone().normalize() : new THREE.Vector3(0, 1, 0);
+                        const colorHex = colorForChar(char);
+                        const mesh = new THREE.Mesh(geometry, getMaterial(colorHex));
+                        mesh.position.copy(position);
+                        mesh.userData.basePosition = position.clone();
+                        mesh.userData.normal = normal;
+                        mesh.userData.sheet = sheetIndex;
+                        mesh.userData.density = density;
+                        mesh.userData.amplitude = 0.25 + (DENSITY.length - 1 - density) * 0.06;
+                        mesh.userData.baseScale = 1 + (DENSITY.length - 1 - density) * 0.02;
+                        group.add(mesh);
+
+                        visibleCount += 1;
+                        visibleCounts.set(char, (visibleCounts.get(char) || 0) + 1);
+                    }
+                }
+            }
+
+            dominantChar = [...visibleCounts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] || null;
+            group.userData.geometry = geometry;
+            scene.add(group);
+            currentGroup = group;
+
+            buildGuide();
+            updateHud(visibleCount, dominantChar);
+            syncControls();
+        }
+
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x030611);
+            scene.fog = new THREE.FogExp2(0x030611, 0.0012);
+
+            camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 52, 170);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+            renderer.shadowMap.enabled = false;
+            document.body.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.target.set(0, 0, 0);
+            controls.zoomSpeed = 0.9;
+            controls.panSpeed = 0.75;
+
+            scene.add(new THREE.AmbientLight(0x6d7ca8, 0.78));
+
+            const keyLight = new THREE.DirectionalLight(0xcde5ff, 1.05);
+            keyLight.position.set(32, 44, 18);
+            scene.add(keyLight);
+
+            const rimLight = new THREE.PointLight(0x4ce2d9, 0.55, 260);
+            rimLight.position.set(-60, 18, -46);
+            scene.add(rimLight);
+
+            const underLight = new THREE.PointLight(0x6f59d9, 0.32, 240);
+            underLight.position.set(0, -64, 0);
+            scene.add(underLight);
+
+            const starsGeometry = new THREE.BufferGeometry();
+            const stars = [];
+            for (let index = 0; index < 1000; index += 1) {
+                stars.push((Math.random() - 0.5) * 420);
+                stars.push((Math.random() - 0.5) * 300);
+                stars.push((Math.random() - 0.5) * 420);
+            }
+            starsGeometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(stars), 3));
+            const starsMaterial = new THREE.PointsMaterial({ color: 0xdce8ff, size: 0.48, transparent: true, opacity: 0.9 });
+            starField = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(starField);
+        }
+
+        function buildLegend() {
+            const legend = document.getElementById("legend");
+            legend.innerHTML = SHELL_LAYERS.map((layer, index) => {
+                const sheetNumber = String(index + 1).padStart(2, "0");
+                const color = `#${layer.color.toString(16).padStart(6, "0")}`;
+                return `<span style="color:${color}">${sheetNumber} ${layer.name}</span>`;
+            }).join("");
+        }
+
+        function bindUi() {
+            document.getElementById("btnGeometry").addEventListener("click", () => {
+                geometryMode = geometryMode === "sphere" ? "cube" : "sphere";
+                rebuildVoxels();
+            });
+
+            document.getElementById("btnView").addEventListener("click", () => {
+                displayMode = displayMode === "all" ? "single" : "all";
+                lightSpeedActive = false;
+                rebuildVoxels();
+            });
+
+            document.getElementById("btnSweep").addEventListener("click", () => {
+                lightSpeedActive = !lightSpeedActive;
+                if (lightSpeedActive) {
+                    displayMode = "single";
+                }
+                syncControls();
+                rebuildVoxels();
+            });
+
+            document.getElementById("btnPulse").addEventListener("click", () => {
+                fieldPulseActive = !fieldPulseActive;
+                if (!fieldPulseActive && currentGroup) {
+                    for (const mesh of currentGroup.children) {
+                        mesh.position.copy(mesh.userData.basePosition);
+                        mesh.scale.setScalar(mesh.userData.baseScale);
+                    }
+                }
+                syncControls();
+            });
+
+            densitySlider.addEventListener("input", (event) => {
+                densityThreshold = Number(event.target.value);
+                lightSpeedActive = false;
+                rebuildVoxels();
+            });
+
+            focusSlider.addEventListener("input", (event) => {
+                focusSheet = Math.max(0, Math.min(SHEETS - 1, Number(event.target.value) - 1));
+                lightSpeedActive = false;
+                rebuildVoxels();
+            });
+
+            window.addEventListener("resize", () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsed = clock.getElapsedTime();
+            if (lightSpeedActive) {
+                const nextSheet = Math.floor(elapsed * 9.0) % SHEETS;
+                if (nextSheet !== focusSheet) {
+                    focusSheet = nextSheet;
+                    rebuildVoxels();
+                }
+            }
+
+            if (currentGroup) {
+                if (fieldPulseActive) {
+                    for (const mesh of currentGroup.children) {
+                        const wave = Math.sin(elapsed * 3.4 - mesh.userData.sheet * 0.52 + mesh.userData.density * 0.37);
+                        if (geometryMode === "sphere") {
+                            mesh.position
+                                .copy(mesh.userData.basePosition)
+                                .addScaledVector(mesh.userData.normal, wave * mesh.userData.amplitude);
+                        }
+                        mesh.scale.setScalar(mesh.userData.baseScale + wave * 0.07);
+                    }
+                }
+
+                currentGroup.rotation.y = elapsed * 0.08;
+                currentGroup.rotation.x = Math.sin(elapsed * 0.23) * 0.06;
+            }
+
+            if (starField) {
+                starField.rotation.y = elapsed * 0.01;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        initScene();
+        buildLegend();
+        bindUi();
+        rebuildVoxels();
+        animate();
+
+        console.log("Spherai Voxel 26 ready");
+    </script>
+</body>
+</html>

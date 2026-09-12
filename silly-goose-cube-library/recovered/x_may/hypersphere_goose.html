@@ -1,0 +1,349 @@
+
+<style>
+body{margin:0;background:transparent;}
+canvas{display:block;}
+#c{cursor:crosshair;}
+#info{position:absolute;top:10px;left:10px;font-family:monospace;font-size:12px;color:rgba(255,255,255,0.6);pointer-events:none;}
+#honkbtn{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-family:monospace;font-size:13px;font-weight:500;background:rgba(255,200,60,0.15);border:1px solid rgba(255,200,60,0.5);color:#ffd25a;padding:7px 22px;border-radius:999px;cursor:pointer;}
+#honkbtn:hover{background:rgba(255,200,60,0.28);}
+</style>
+<div style="position:relative;width:100%;height:560px;background:#08070f;overflow:hidden;">
+<canvas id="c"></canvas>
+<div id="info">hypersphere goose · drag to rotate · scroll to zoom</div>
+<button id="honkbtn">HONK</button>
+</div>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const container=canvas.parentElement;
+
+function resize(){
+  canvas.width=container.clientWidth;
+  canvas.height=container.clientHeight;
+}
+resize();
+window.addEventListener('resize',resize);
+
+const TAU=Math.PI*2;
+
+// 4D rotation matrices — returns rotated 4-vector
+function rot4(v,ab,cd,xw,yw,zw,t){
+  let [x,y,z,w]=v;
+  // xy plane
+  let c=Math.cos(ab),s=Math.sin(ab);
+  [x,y]=[x*c-y*s,x*s+y*c];
+  // xz plane
+  c=Math.cos(cd);s=Math.sin(cd);
+  [x,z]=[x*c-z*s,x*s+z*c];
+  // xw plane
+  c=Math.cos(xw);s=Math.sin(xw);
+  [x,w]=[x*c-w*s,x*s+w*c];
+  // yw plane
+  c=Math.cos(yw);s=Math.sin(yw);
+  [y,w]=[y*c-w*s,y*s+w*c];
+  // zw plane
+  c=Math.cos(zw);s=Math.sin(zw);
+  [z,w]=[z*c-w*s,z*s+w*c];
+  return [x,y,z,w];
+}
+
+// stereographic projection 4D -> 3D
+function stereo4(v,dist4=2.8){
+  const [x,y,z,w]=v;
+  const d=dist4-w;
+  if(Math.abs(d)<0.001)return[0,0,0];
+  return[x/d*dist4,y/d*dist4,z/d*dist4];
+}
+
+// perspective projection 3D -> 2D
+function persp3(v,dist3=4,zoom){
+  const [x,y,z]=v;
+  const d=dist3-z;
+  if(d<0.01)return null;
+  const s=zoom*dist3/d;
+  return[x*s,y*s];
+}
+
+// Generate 4-sphere lattice points
+function genHypersphere(n,R=1){
+  const pts=[];
+  // golden angle sampling on S3
+  const gold=2.399963; // 2pi/phi^2
+  for(let i=0;i<n;i++){
+    const t=i/n;
+    const phi1=Math.acos(1-2*t);
+    const phi2=gold*i;
+    const phi3=gold*gold*i;
+    const w=R*Math.cos(phi1);
+    const r=R*Math.sin(phi1);
+    const z2=r*Math.cos(phi2);
+    const r2=r*Math.sin(phi2);
+    const x=r2*Math.cos(phi3);
+    const y=r2*Math.sin(phi3);
+    pts.push([x,y,z2,w]);
+  }
+  return pts;
+}
+
+// GOOSE ASCII segments as 4D ribbon
+function gooseRibbon(){
+  // define a 3D goose silhouette path, embed it in 4D on a great circle
+  const segs=[];
+  // body oval
+  for(let i=0;i<=32;i++){
+    const a=i/32*TAU;
+    const x=Math.cos(a)*0.42,y=Math.sin(a)*0.26;
+    const z=0,w=Math.sin(a*2)*0.15;
+    segs.push({type:'body',pt:[x,y,z,w]});
+  }
+  // neck arc
+  for(let i=0;i<=18;i++){
+    const t=i/18;
+    const a=Math.PI*0.6+t*Math.PI*0.7;
+    const x=0.3+Math.cos(a)*0.18,y=0.22+Math.sin(a)*0.42;
+    const z=Math.sin(t*Math.PI)*0.08,w=Math.cos(t*Math.PI*1.5)*0.12;
+    segs.push({type:'neck',pt:[x,y,z,w]});
+  }
+  // head
+  for(let i=0;i<=20;i++){
+    const a=i/20*TAU;
+    const x=0.52+Math.cos(a)*0.12,y=0.7+Math.sin(a)*0.1;
+    const z=Math.sin(a)*0.06,w=Math.cos(a*3)*0.09;
+    segs.push({type:'head',pt:[x,y,z,w]});
+  }
+  // beak
+  for(let i=0;i<=8;i++){
+    const t=i/8;
+    const x=0.62+t*0.22,y=0.72-t*0.04;
+    const z=Math.sin(t*Math.PI)*0.04,w=t*0.05;
+    segs.push({type:'beak',pt:[x,y,z,w]});
+  }
+  // left wing
+  for(let i=0;i<=24;i++){
+    const t=i/24;
+    const a=Math.PI+t*Math.PI*0.9;
+    const x=Math.cos(a)*0.7,y=Math.sin(a)*0.35-0.08;
+    const z=Math.sin(t*Math.PI)*0.35,w=Math.sin(t*TAU)*0.18;
+    segs.push({type:'wing',pt:[x,y,z,w]});
+  }
+  // right wing
+  for(let i=0;i<=24;i++){
+    const t=i/24;
+    const a=t*Math.PI*0.9;
+    const x=Math.cos(a)*0.7,y=Math.sin(a)*0.35-0.08;
+    const z=-Math.sin(t*Math.PI)*0.35,w=Math.sin(t*TAU)*0.18;
+    segs.push({type:'rwing',pt:[x,y,z,w]});
+  }
+  // feet
+  for(let k=-1;k<=1;k+=2){
+    for(let i=0;i<=12;i++){
+      const t=i/12;
+      const x=k*0.15,y=-0.28-t*0.25;
+      const z=k*Math.sin(t*Math.PI)*0.18,w=Math.cos(t*TAU)*0.06;
+      segs.push({type:'foot',pt:[x,y,z,w]});
+    }
+  }
+  return segs;
+}
+
+const GOOSE_SEGS=gooseRibbon();
+const SPHERE_PTS=genHypersphere(420,1.05);
+const SHELL_PTS=genHypersphere(120,1.4);
+
+// honk particles
+const honkParts=[];
+function spawnHonk(){
+  for(let i=0;i<36;i++){
+    const a=i/36*TAU;
+    const b=Math.random()*TAU;
+    const vel=[Math.sin(a)*Math.cos(b),Math.sin(a)*Math.sin(b),Math.cos(a),(Math.random()-0.5)*0.3];
+    honkParts.push({pos:[0.6,0.72,0.05,0.0],vel:vel.map(v=>v*0.04),life:1.0,col:`hsl(${40+Math.random()*30},90%,65%)`});
+  }
+}
+
+// state
+let rotAB=0,rotCD=0,rotXW=0.2,rotYW=0.05,rotZW=0.1;
+let dragX=0,dragY=0,dragging=false,lastMX=0,lastMY=0;
+let zoom=140;
+let t=0;
+let wobble=0;
+
+const gooseColors={body:'#e8e4d8',neck:'#e8e4d8',head:'#e8e4d8',beak:'#f0a830',foot:'#f0a830',wing:'#d0ccb8',rwing:'#d0ccb8'};
+
+canvas.addEventListener('mousedown',e=>{dragging=true;lastMX=e.clientX;lastMY=e.clientY;});
+canvas.addEventListener('mouseup',()=>dragging=false);
+canvas.addEventListener('mousemove',e=>{
+  if(!dragging)return;
+  const dx=e.clientX-lastMX,dy=e.clientY-lastMY;
+  rotAB+=dx*0.008;rotCD+=dy*0.008;
+  lastMX=e.clientX;lastMY=e.clientY;
+});
+canvas.addEventListener('wheel',e=>{zoom=Math.max(60,Math.min(320,zoom-e.deltaY*0.3));});
+document.getElementById('honkbtn').addEventListener('click',()=>{spawnHonk();wobble=8;});
+
+// touch
+canvas.addEventListener('touchstart',e=>{dragging=true;lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;});
+canvas.addEventListener('touchend',()=>dragging=false);
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const dx=e.touches[0].clientX-lastMX,dy=e.touches[0].clientY-lastMY;
+  rotAB+=dx*0.008;rotCD+=dy*0.008;
+  lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;
+},{passive:false});
+
+function project(pt4){
+  const rot=rot4(pt4,rotAB,rotCD,rotXW,rotYW,rotZW);
+  const p3=stereo4(rot,2.5);
+  const p2=persp3(p3,4,zoom);
+  if(!p2)return null;
+  const cx=canvas.width/2,cy=canvas.height/2;
+  const wob=wobble>0?Math.sin(t*22)*wobble*0.6:0;
+  return[p2[0]+cx+wob,p2[1]+cy];
+}
+
+function getDepth(pt4){
+  const rot=rot4(pt4,rotAB,rotCD,rotXW,rotYW,rotZW);
+  return stereo4(rot,2.5)[2];
+}
+
+function draw(){
+  requestAnimationFrame(draw);
+  t+=0.008;
+  if(wobble>0)wobble*=0.88;
+
+  // auto-rotate slowly unless dragging
+  if(!dragging){
+    rotAB+=0.0018;rotXW+=0.0011;rotYW+=0.0007;rotZW+=0.0009;
+  }
+
+  const W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // background — very subtle radial
+  const grad=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*0.7);
+  grad.addColorStop(0,'rgba(18,12,40,1)');
+  grad.addColorStop(1,'rgba(4,3,12,1)');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,W,H);
+
+  // outer shell dots
+  SHELL_PTS.forEach(p=>{
+    const sp=rot4(p,rotAB,rotCD,rotXW+0.3,rotYW+0.15,rotZW+0.2);
+    const p3=stereo4(sp,2.5);
+    const p2=persp3(p3,4,zoom);
+    if(!p2)return;
+    const [px,py]=p2;
+    const cx=W/2,cy=H/2;
+    const depth=(p3[2]+2)/4;
+    const alpha=0.08+depth*0.12;
+    ctx.fillStyle=`rgba(100,140,255,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(px+cx,py+cy,0.8,0,TAU);
+    ctx.fill();
+  });
+
+  // hypersphere lattice points — colored by w-coordinate of original
+  const spPts=SPHERE_PTS.map(p=>{
+    const rot=rot4(p,rotAB,rotCD,rotXW,rotYW,rotZW);
+    const p3=stereo4(rot,2.5);
+    const p2=persp3(p3,4,zoom);
+    if(!p2)return null;
+    const depth=(p3[2]+2)/4;
+    // w after rotation to color
+    const wComp=(rot[3]+1)/2;
+    const hue=200+wComp*160;
+    const alpha=0.15+depth*0.55;
+    const sz=0.9+depth*1.4;
+    return{px:p2[0]+W/2,py:p2[1]+H/2,depth,hue,alpha,sz};
+  }).filter(Boolean).sort((a,b)=>a.depth-b.depth);
+
+  spPts.forEach(({px,py,hue,alpha,sz})=>{
+    ctx.fillStyle=`hsla(${hue},70%,65%,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(px,py,sz,0,TAU);
+    ctx.fill();
+  });
+
+  // goose segments grouped by type
+  const typeGroups={};
+  GOOSE_SEGS.forEach(seg=>{
+    const type=seg.type;
+    if(!typeGroups[type])typeGroups[type]=[];
+    typeGroups[type].push(seg.pt);
+  });
+
+  // draw each goose part as a connected path
+  Object.entries(typeGroups).forEach(([type,pts])=>{
+    const color=gooseColors[type]||'#e0ddd0';
+    const proj=pts.map(p=>project(p));
+    // draw as path
+    ctx.beginPath();
+    let first=true;
+    proj.forEach(p=>{
+      if(!p)return;
+      if(first){ctx.moveTo(p[0],p[1]);first=false;}
+      else ctx.lineTo(p[0],p[1]);
+    });
+    if(type==='body'||type==='head'){
+      ctx.closePath();
+      ctx.fillStyle=color+'33';
+      ctx.fill();
+    }
+    ctx.strokeStyle=color;
+    ctx.lineWidth=type==='beak'?2.5:type==='foot'?2:1.5;
+    ctx.globalAlpha=0.88;
+    ctx.stroke();
+    ctx.globalAlpha=1;
+  });
+
+  // goose eye
+  const eyePt=[0.62,0.72,-0.04,0.03];
+  const ep=project(eyePt);
+  if(ep){
+    ctx.fillStyle='#111';
+    ctx.beginPath();
+    ctx.arc(ep[0],ep[1],2.2,0,TAU);
+    ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    ctx.beginPath();
+    ctx.arc(ep[0]+0.8,ep[1]-0.8,0.9,0,TAU);
+    ctx.fill();
+  }
+
+  // honk particles
+  for(let i=honkParts.length-1;i>=0;i--){
+    const h=honkParts[i];
+    h.pos=h.pos.map((v,j)=>v+h.vel[j]);
+    // normalize to keep on S3
+    const len=Math.sqrt(h.pos.reduce((a,v)=>a+v*v,0));
+    h.pos=h.pos.map(v=>v/len*1.15);
+    h.vel=h.vel.map(v=>v*0.93);
+    h.life-=0.025;
+    if(h.life<=0){honkParts.splice(i,1);continue;}
+    const pp=project(h.pos);
+    if(pp){
+      ctx.globalAlpha=h.life*0.9;
+      ctx.fillStyle=h.col;
+      const sz=3*h.life;
+      ctx.beginPath();
+      ctx.arc(pp[0],pp[1],sz,0,TAU);
+      ctx.fill();
+      ctx.globalAlpha=1;
+    }
+  }
+
+  // honk text burst
+  if(wobble>2&&honkParts.length>0){
+    const cx2=W/2,cy2=H/2;
+    ctx.save();
+    ctx.globalAlpha=Math.min(1,(wobble-2)/6);
+    ctx.font=`bold ${Math.round(24+wobble*2)}px monospace`;
+    ctx.fillStyle='#ffd25a';
+    ctx.textAlign='center';
+    ctx.fillText('HONK',cx2,cy2-80);
+    ctx.restore();
+  }
+}
+
+draw();
+</script>

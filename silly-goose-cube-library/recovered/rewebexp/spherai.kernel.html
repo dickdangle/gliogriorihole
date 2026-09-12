@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spherai Kernel Interface</title>
+  <style>
+    :root {
+      --bg: #07111a;
+      --bg2: #0f2230;
+      --panel: rgba(7, 17, 26, 0.76);
+      --panel-border: rgba(187, 233, 255, 0.14);
+      --text: #e8f5ff;
+      --muted: #9cb7c8;
+      --accent: #7ae7c7;
+      --accent-warm: #ffd075;
+      --accent-hot: #ff9f7f;
+      --state-blind: #7a9bb1;
+      --state-sighted: #7ae7c7;
+      --state-resonant: #b0a6ff;
+      --state-hatched: #ffd075;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(122, 231, 199, 0.10), transparent 32%),
+        radial-gradient(circle at 80% 18%, rgba(176, 166, 255, 0.12), transparent 30%),
+        radial-gradient(circle at 50% 80%, rgba(255, 208, 117, 0.10), transparent 35%),
+        linear-gradient(160deg, var(--bg), var(--bg2));
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.18;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #shell {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .panel {
+      pointer-events: auto;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    }
+
+    #header {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      right: 18px;
+      display: grid;
+      grid-template-columns: minmax(300px, 480px) minmax(260px, 380px);
+      justify-content: space-between;
+      gap: 14px;
+      align-items: start;
+    }
+
+    #intro {
+      padding: 16px 18px;
+      border-radius: 24px;
+    }
+
+    #intro h1 {
+      margin: 0 0 6px;
+      font-size: clamp(24px, 2.2vw, 38px);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    #intro p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    #stateCard {
+      padding: 16px 18px;
+      border-radius: 24px;
+    }
+
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stateRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .stateName {
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .statePulse {
+      font-size: 13px;
+      color: var(--accent);
+    }
+
+    #progressBar {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      margin-top: 12px;
+    }
+
+    #progressFill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-warm), var(--accent-hot));
+      transition: width 0.25s ease;
+    }
+
+    #dock {
+      position: fixed;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      display: grid;
+      grid-template-columns: minmax(320px, 520px) minmax(240px, 320px);
+      justify-content: space-between;
+      gap: 14px;
+      align-items: end;
+    }
+
+    #controls {
+      padding: 16px 18px;
+      border-radius: 24px;
+    }
+
+    .cluster {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    button,
+    select,
+    input[type="range"] {
+      appearance: none;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 10px 12px;
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:hover,
+    select:hover {
+      background: rgba(255,255,255,0.10);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pill input[type="range"] {
+      padding: 0;
+      width: 120px;
+      background: transparent;
+      border: 0;
+    }
+
+    #ledger {
+      padding: 16px 18px;
+      border-radius: 24px;
+    }
+
+    #metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .metric {
+      padding: 10px 12px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .metricLabel {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .metricValue {
+      margin-top: 6px;
+      font-size: 20px;
+    }
+
+    #whisper {
+      margin-top: 12px;
+      min-height: 38px;
+      color: #dcecff;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    #legend {
+      position: fixed;
+      top: 210px;
+      right: 18px;
+      width: min(300px, calc(100vw - 36px));
+      padding: 14px 16px;
+      border-radius: 24px;
+    }
+
+    #legend ul {
+      margin: 10px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    #legend code {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      margin-right: 6px;
+    }
+
+    @media (max-width: 980px) {
+      #header,
+      #dock {
+        grid-template-columns: 1fr;
+      }
+
+      #legend {
+        position: fixed;
+        top: auto;
+        right: 18px;
+        bottom: 240px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="field"></canvas>
+
+  <div id="shell">
+    <section id="header">
+      <div id="intro" class="panel">
+        <div class="eyebrow">Spherai Interface</div>
+        <h1>Kernel, state engine, field body</h1>
+        <p>
+          This surface is not the goose game. It is the inner organism: a living
+          simulation layer where state, resonance, vector fields, and memory breathe together.
+          Goose motifs can visit, but they are no longer the whole frame.
+        </p>
+      </div>
+
+      <div id="stateCard" class="panel">
+        <div class="eyebrow">Living State</div>
+        <div class="stateRow">
+          <div class="stateName" id="stateName">blind</div>
+          <div class="statePulse" id="breathReadout">breath 0.00</div>
+        </div>
+        <div id="stateSummary">The kernel is gathering coherence from motion and reference.</div>
+        <div id="progressBar"><div id="progressFill"></div></div>
+      </div>
+    </section>
+
+    <aside id="legend" class="panel">
+      <div class="eyebrow">Operators</div>
+      <ul>
+        <li><code>1</code> singularity attract</li>
+        <li><code>2</code> singularity repulse</li>
+        <li><code>3</code> vortex clockwise</li>
+        <li><code>4</code> vortex counterclockwise</li>
+        <li><code>5</code> shear x</li>
+        <li><code>6</code> pulse</li>
+      </ul>
+    </aside>
+
+    <section id="dock">
+      <div id="controls" class="panel">
+        <div class="eyebrow">Field Weaving</div>
+        <div class="cluster">
+          <select id="mode">
+            <option value="singularity_attract">Singularity · Attract</option>
+            <option value="singularity_repulse">Singularity · Repulse</option>
+            <option value="vortex_cw">Vortex · Clockwise</option>
+            <option value="vortex_ccw">Vortex · Counterclockwise</option>
+            <option value="shear_x">Shear · X</option>
+            <option value="pulse">Pulse</option>
+          </select>
+          <button id="seedGoose">Seed Goose Trace</button>
+          <button id="clearOps">Clear Operators</button>
+          <button id="resetParticles">Reset Particles</button>
+          <button id="toggleVectors">Toggle Vectors</button>
+          <button id="toggleCroaks">Wake Frogs</button>
+        </div>
+        <div class="cluster">
+          <span class="pill">Strength <input id="strength" type="range" min="40" max="2400" value="650" /></span>
+          <span class="pill">Radius <input id="radius" type="range" min="20" max="260" value="90" /></span>
+          <span class="pill">Breath <input id="breath" type="range" min="1" max="100" value="38" /></span>
+        </div>
+      </div>
+
+      <div id="ledger" class="panel">
+        <div class="eyebrow">Kernel Telemetry</div>
+        <div id="metrics">
+          <div class="metric">
+            <div class="metricLabel">Operators</div>
+            <div class="metricValue" id="operatorsCount">0</div>
+          </div>
+          <div class="metric">
+            <div class="metricLabel">Particles</div>
+            <div class="metricValue" id="particlesCount">0</div>
+          </div>
+          <div class="metric">
+            <div class="metricLabel">State Tick</div>
+            <div class="metricValue" id="stateTick">0</div>
+          </div>
+          <div class="metric">
+            <div class="metricLabel">Resonance</div>
+            <div class="metricValue" id="resonanceValue">0.000</div>
+          </div>
+          <div class="metric">
+            <div class="metricLabel">Critters</div>
+            <div class="metricValue" id="critterValue">sleepy</div>
+          </div>
+          <div class="metric">
+            <div class="metricLabel">Chorus</div>
+            <div class="metricValue" id="chorusValue">off</div>
+          </div>
+        </div>
+        <div id="whisper">The kernel is asleep but not inert.</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("field");
+    const ctx = canvas.getContext("2d");
+
+    const stateNameEl = document.getElementById("stateName");
+    const stateSummaryEl = document.getElementById("stateSummary");
+    const progressFillEl = document.getElementById("progressFill");
+    const breathReadoutEl = document.getElementById("breathReadout");
+    const operatorsCountEl = document.getElementById("operatorsCount");
+    const particlesCountEl = document.getElementById("particlesCount");
+    const stateTickEl = document.getElementById("stateTick");
+    const resonanceValueEl = document.getElementById("resonanceValue");
+    const critterValueEl = document.getElementById("critterValue");
+    const chorusValueEl = document.getElementById("chorusValue");
+    const whisperEl = document.getElementById("whisper");
+
+    const modeEl = document.getElementById("mode");
+    const strengthEl = document.getElementById("strength");
+    const radiusEl = document.getElementById("radius");
+    const breathEl = document.getElementById("breath");
+    const toggleCroaksButton = document.getElementById("toggleCroaks");
+
+    const DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const TAU = Math.PI * 2;
+    const EPS = 1e-4;
+
+    let W = 0;
+    let H = 0;
+    let showVectors = false;
+    let croaksEnabled = false;
+    let audioCtx = null;
+    let masterGain = null;
+    let lastCroakAt = 0;
+    const particles = [];
+    const operators = [];
+
+    const Kernel = (() => {
+      let tick = 0;
+      let coherence = 0;
+      let breath = 0;
+      let resonance = 0;
+      let whisperIndex = 0;
+      const whispers = [
+        "The kernel is asleep but not inert.",
+        "Motion is becoming memory.",
+        "The field begins to refer to itself.",
+        "Breath and state are synchronizing.",
+        "A goose-shape passes through the simulation like a remembered myth.",
+        "The interface is becoming a body.",
+      ];
+
+      function currentState() {
+        if (coherence < 1.5) return "blind";
+        if (coherence < 3.1) return "sighted";
+        if (coherence < 5.5) return "resonant";
+        return "hatched";
+      }
+
+      function stateSummary(state) {
+        if (state === "blind") return "The kernel is gathering coherence from motion and reference.";
+        if (state === "sighted") return "The entity can now feel gradients and hold orientation.";
+        if (state === "resonant") return "State, breath, and vector pressure are feeding each other.";
+        return "The system has become an active organism with memory and field appetite.";
+      }
+
+      return {
+        update({ operatorCount, avgSpeed, flowEnergy, breathRate }) {
+          tick += 1;
+          breath = 0.5 + 0.5 * Math.sin(tick * 0.014 * breathRate);
+          resonance = avgSpeed * 0.45 + flowEnergy * 0.002 + operatorCount * 0.08 + breath * 0.4;
+          coherence += resonance * 0.0032;
+          const state = currentState();
+          whisperIndex = Math.min(whispers.length - 1, Math.floor(coherence));
+          return {
+            tick,
+            breath,
+            resonance,
+            coherence,
+            state,
+            summary: stateSummary(state),
+            whisper: whispers[whisperIndex],
+          };
+        },
+      };
+    })();
+
+    function resize() {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.floor(W * DPR);
+      canvas.height = Math.floor(H * DPR);
+      canvas.style.width = W + "px";
+      canvas.style.height = H + "px";
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
+
+    function rand(a, b) {
+      return a + Math.random() * (b - a);
+    }
+
+    function resetParticles() {
+      particles.length = 0;
+      const count = Math.max(600, Math.floor((W * H) / 2200));
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: rand(0, W),
+          y: rand(0, H),
+          vx: rand(-4, 4),
+          vy: rand(-4, 4),
+          trail: [],
+          kind: "ambient",
+          frogHue: rand(90, 145),
+          frogSize: rand(0.85, 1.25),
+          blinkOffset: rand(0, TAU),
+          croakBias: rand(0.25, 1),
+        });
+      }
+    }
+
+    function ensureAudio() {
+      if (audioCtx) {
+        if (audioCtx.state === "suspended") {
+          audioCtx.resume();
+        }
+        return true;
+      }
+      const AudioCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtor) {
+        return false;
+      }
+      audioCtx = new AudioCtor();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.08;
+      masterGain.connect(audioCtx.destination);
+      return true;
+    }
+
+    function updateChorusReadout() {
+      chorusValueEl.textContent = croaksEnabled ? "ribbit" : "off";
+      toggleCroaksButton.textContent = croaksEnabled ? "Mute Frogs" : "Wake Frogs";
+    }
+
+    function playRibbit(particle, speed, breath) {
+      if (!croaksEnabled || !ensureAudio()) {
+        return;
+      }
+      const nowMs = performance.now();
+      if (nowMs - lastCroakAt < 70) {
+        return;
+      }
+      lastCroakAt = nowMs;
+
+      const now = audioCtx.currentTime;
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(520 + particle.frogHue * 2.4, now);
+      filter.Q.value = 1.8;
+
+      const osc = audioCtx.createOscillator();
+      osc.type = Math.random() > 0.5 ? "triangle" : "sawtooth";
+      const gain = audioCtx.createGain();
+
+      const startFreq = 220 + particle.frogHue * 1.8 + speed * 45;
+      const endFreq = startFreq * (0.56 + breath * 0.08);
+      osc.frequency.setValueAtTime(startFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(80, endFreq), now + 0.12);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.028 + particle.croakBias * 0.03, now + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start(now);
+      osc.stop(now + 0.2);
+    }
+
+    function drawFrog(particle, speed, t) {
+      const heading = Math.atan2(particle.vy, particle.vx || 0.001);
+      const hop = Math.sin(t * 10 + particle.blinkOffset + speed * 1.2) * 0.5 + 0.5;
+      const s = particle.frogSize * (1 + hop * 0.08);
+
+      ctx.save();
+      ctx.translate(particle.x, particle.y);
+      ctx.rotate(heading);
+      ctx.scale(s, s);
+
+      const blink = Math.sin(t * 1.8 + particle.blinkOffset) > 0.96;
+      const body = `hsl(${particle.frogHue}, 48%, ${38 + hop * 10}%)`;
+      const belly = `hsla(${particle.frogHue - 12}, 50%, 70%, 0.95)`;
+      const leg = `hsla(${particle.frogHue - 8}, 44%, 28%, 0.95)`;
+
+      ctx.fillStyle = leg;
+      ctx.fillRect(-3, 1, 2, 1);
+      ctx.fillRect(1, 1, 2, 1);
+      ctx.fillRect(-4, 2, 1, 1);
+      ctx.fillRect(3, 2, 1, 1);
+
+      ctx.fillStyle = body;
+      ctx.fillRect(-2, -2, 5, 4);
+      ctx.fillRect(-1, -3, 3, 1);
+
+      ctx.fillStyle = belly;
+      ctx.fillRect(-1, 0, 3, 2);
+
+      ctx.fillStyle = "rgba(244,255,240,0.98)";
+      ctx.fillRect(-2, -3, 1, 1);
+      ctx.fillRect(2, -3, 1, 1);
+
+      ctx.fillStyle = blink ? "rgba(20,30,24,0.85)" : "rgba(12,16,14,0.95)";
+      ctx.fillRect(-2, -3, 1, blink ? 0.25 : 1);
+      ctx.fillRect(2, -3, 1, blink ? 0.25 : 1);
+
+      ctx.restore();
+    }
+
+    function addOperator(x, y, type = modeEl.value, strength = Number(strengthEl.value), radius = Number(radiusEl.value), source = "manual") {
+      operators.push({
+        x,
+        y,
+        type,
+        strength,
+        radius,
+        phase: rand(0, TAU),
+        source,
+      });
+    }
+
+    function clearMgcOperators() {
+      for (let i = operators.length - 1; i >= 0; i--) {
+        if (operators[i].source === "mgc") {
+          operators.splice(i, 1);
+        }
+      }
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function applyMgcPacket(packet) {
+      if (!packet || packet.type !== "mgc-board-state") {
+        return;
+      }
+
+      clearMgcOperators();
+
+      const metrics = packet.metrics || {};
+      const signal = packet.signal || {};
+      const operatorCount = clamp(Number(metrics.playerCount) || 1, 1, 10);
+      const openBounties = Number(metrics.openBounties) || 0;
+      const pressure = Number(signal.pressure) || Number(metrics.bountyPressure) || 1;
+      const strength = clamp(Number(signal.strength) || 700, 120, 2400);
+      const radius = clamp(Number(signal.radius) || 96, 28, 260);
+      const cx = W * 0.5;
+      const cy = H * 0.5;
+      const ring = Math.min(W, H) * 0.18 + openBounties * 8;
+      const types = ["singularity_attract", "pulse", "vortex_ccw", "shear_x", "vortex_cw", "singularity_repulse"];
+
+      for (let i = 0; i < operatorCount; i++) {
+        const angle = -Math.PI / 2 + (i / operatorCount) * TAU;
+        const type = types[i % types.length];
+        const weight = packet.operators && packet.operators[i] ? Number(packet.operators[i].total) || 1 : 1;
+        addOperator(
+          cx + Math.cos(angle) * ring,
+          cy + Math.sin(angle) * ring,
+          type,
+          clamp(strength + weight * 22, 120, 2400),
+          clamp(radius + weight * 2, 28, 260),
+          "mgc"
+        );
+      }
+
+      breathEl.value = String(clamp(Number(signal.breath) || 38, 1, 100));
+      modeEl.value = signal.state === "hatched" ? "pulse" : signal.state === "resonant" ? "vortex_ccw" : "singularity_attract";
+      whisperEl.textContent = `MGC packet accepted: ${packet.selected?.operator?.name || "operator"} / ${packet.selected?.bounty?.title || "bounty"} at pressure ${pressure}.`;
+
+      if (packet.reason === "seed") {
+        addOperator(cx, cy, "pulse", clamp(strength * 0.72, 120, 2400), clamp(radius * 1.2, 28, 260), "mgc");
+      }
+
+      window.parent?.postMessage({ type: "spherai:mgc:ack", operators: operators.length }, "*");
+    }
+
+    function seedGooseTrace() {
+      const cx = W * 0.32;
+      const cy = H * 0.52;
+      addOperator(cx, cy, "singularity_attract", 920, 130);
+      addOperator(cx + 100, cy - 24, "pulse", 880, 110);
+      addOperator(cx + 180, cy - 12, "vortex_ccw", 760, 95);
+      addOperator(cx + 235, cy + 20, "shear_x", 540, 90);
+      whisperEl.textContent = "A goose trace has been seeded into the field as a motif, not a prison.";
+    }
+
+    function fieldAt(x, y, t, breath) {
+      let fx = 0;
+      let fy = 0;
+
+      fx += 8 * Math.sin(y * 0.005 + t * (0.28 + breath * 0.18));
+      fy += 8 * Math.cos(x * 0.004 - t * (0.24 + breath * 0.15));
+
+      const centerDx = x - W * 0.5;
+      const centerDy = y - H * 0.5;
+      const centerR = Math.hypot(centerDx, centerDy) + EPS;
+      const centerPulse = 120 * breath / Math.max(220, centerR);
+      fx += (-centerDy / centerR) * centerPulse;
+      fy += (centerDx / centerR) * centerPulse;
+
+      for (const op of operators) {
+        const dx = x - op.x;
+        const dy = y - op.y;
+        const r2 = dx * dx + dy * dy + EPS;
+        const r = Math.sqrt(r2);
+        const falloff = Math.exp(-(r * r) / (2 * op.radius * op.radius));
+
+        if (op.type === "singularity_attract" || op.type === "singularity_repulse") {
+          const sign = op.type === "singularity_attract" ? -1 : 1;
+          fx += (dx / r) * sign * op.strength * falloff;
+          fy += (dy / r) * sign * op.strength * falloff;
+        }
+
+        if (op.type === "vortex_cw" || op.type === "vortex_ccw") {
+          const dir = op.type === "vortex_cw" ? 1 : -1;
+          fx += dir * (-dy / r) * op.strength * falloff;
+          fy += dir * (dx / r) * op.strength * falloff;
+        }
+
+        if (op.type === "shear_x") {
+          fx += op.strength * falloff * 0.08 * Math.sign(dy || 1);
+        }
+
+        if (op.type === "pulse") {
+          const pulse = Math.sin(t * 3 + op.phase) * 0.5 + 0.5;
+          const strength = op.strength * pulse * falloff;
+          fx += (dx / r) * strength * 0.55;
+          fy += (dy / r) * strength * 0.55;
+        }
+      }
+
+      return { fx, fy };
+    }
+
+    function drawVectors(t, breath) {
+      const step = 64;
+      ctx.save();
+      ctx.globalAlpha = 0.28;
+      for (let y = step / 2; y < H; y += step) {
+        for (let x = step / 2; x < W; x += step) {
+          const { fx, fy } = fieldAt(x, y, t, breath);
+          const mag = Math.hypot(fx, fy);
+          const scale = Math.min(22, mag * 0.018);
+          const angle = Math.atan2(fy, fx);
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(angle);
+          ctx.strokeStyle = "rgba(220, 239, 255, 0.74)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(scale, 0);
+          ctx.lineTo(scale - 4, -2);
+          ctx.moveTo(scale, 0);
+          ctx.lineTo(scale - 4, 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+      ctx.restore();
+    }
+
+    function drawOperators(t) {
+      for (const op of operators) {
+        ctx.save();
+        ctx.translate(op.x, op.y);
+
+        ctx.beginPath();
+        ctx.arc(0, 0, op.radius, 0, TAU);
+        ctx.strokeStyle = "rgba(255,255,255,0.10)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(241, 249, 255, 0.84)";
+        ctx.lineWidth = 2;
+
+        if (op.type.startsWith("singularity")) {
+          ctx.beginPath();
+          ctx.arc(0, 0, 8, 0, TAU);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-14, 0);
+          ctx.lineTo(14, 0);
+          ctx.moveTo(0, -14);
+          ctx.lineTo(0, 14);
+          ctx.stroke();
+        } else if (op.type.startsWith("vortex")) {
+          ctx.beginPath();
+          ctx.arc(0, 0, 10, 0.5, TAU - 0.7);
+          ctx.stroke();
+          const angle = (t * 2) % TAU;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(angle) * 10, Math.sin(angle) * 10);
+          ctx.lineTo(Math.cos(angle + 0.4) * 15, Math.sin(angle + 0.4) * 15);
+          ctx.stroke();
+        } else if (op.type === "shear_x") {
+          ctx.beginPath();
+          ctx.moveTo(-12, -8);
+          ctx.lineTo(12, -8);
+          ctx.moveTo(-12, 0);
+          ctx.lineTo(12, 0);
+          ctx.moveTo(-12, 8);
+          ctx.lineTo(12, 8);
+          ctx.stroke();
+        } else if (op.type === "pulse") {
+          const pulseRadius = 8 + 4 * (Math.sin(t * 4 + op.phase) * 0.5 + 0.5);
+          ctx.beginPath();
+          ctx.arc(0, 0, pulseRadius, 0, TAU);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    function updateStateDisplay(snapshot) {
+      stateNameEl.textContent = snapshot.state;
+      stateSummaryEl.textContent = snapshot.summary;
+      breathReadoutEl.textContent = `breath ${snapshot.breath.toFixed(2)}`;
+      stateTickEl.textContent = String(snapshot.tick);
+      resonanceValueEl.textContent = snapshot.resonance.toFixed(3);
+      progressFillEl.style.width = `${Math.min(100, snapshot.coherence / 6 * 100)}%`;
+      whisperEl.textContent = snapshot.whisper;
+
+      if (snapshot.state === "blind") stateNameEl.style.color = "var(--state-blind)";
+      if (snapshot.state === "sighted") stateNameEl.style.color = "var(--state-sighted)";
+      if (snapshot.state === "resonant") stateNameEl.style.color = "var(--state-resonant)";
+      if (snapshot.state === "hatched") stateNameEl.style.color = "var(--state-hatched)";
+      critterValueEl.textContent = snapshot.state === "blind" ? "sleepy" : snapshot.state === "sighted" ? "hopping" : snapshot.state === "resonant" ? "chorusing" : "pond god";
+    }
+
+    function loop(ts) {
+      const t = ts * 0.001;
+      const breathRate = Number(breathEl.value) * 0.02;
+      const breath = 0.5 + 0.5 * Math.sin(t * breathRate * 2.4);
+
+      ctx.fillStyle = `rgba(7, 17, 26, ${0.08 + breath * 0.03})`;
+      ctx.fillRect(0, 0, W, H);
+
+      const wash = ctx.createRadialGradient(W * 0.5, H * 0.5, 20, W * 0.5, H * 0.5, Math.max(W, H) * 0.78);
+      wash.addColorStop(0, `rgba(122,231,199,${0.04 + breath * 0.02})`);
+      wash.addColorStop(0.45, "rgba(176,166,255,0.05)");
+      wash.addColorStop(0.8, "rgba(255,208,117,0.04)");
+      wash.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = wash;
+      ctx.fillRect(0, 0, W, H);
+
+      if (showVectors) {
+        drawVectors(t, breath);
+      }
+
+      let totalSpeed = 0;
+      let flowEnergy = 0;
+
+      for (const particle of particles) {
+        const { fx, fy } = fieldAt(particle.x, particle.y, t, breath);
+        particle.vx = particle.vx * 0.985 + fx * 0.0018;
+        particle.vy = particle.vy * 0.985 + fy * 0.0018;
+
+        const speed = Math.hypot(particle.vx, particle.vy);
+        const maxSpeed = 4.8 + breath * 0.7;
+        if (speed > maxSpeed) {
+          particle.vx = particle.vx / speed * maxSpeed;
+          particle.vy = particle.vy / speed * maxSpeed;
+        }
+
+        totalSpeed += speed;
+        flowEnergy += Math.abs(fx) + Math.abs(fy);
+
+        particle.trail.push([particle.x, particle.y]);
+        if (particle.trail.length > 10) {
+          particle.trail.shift();
+        }
+
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+
+        if (particle.x < 0) particle.x += W;
+        if (particle.x > W) particle.x -= W;
+        if (particle.y < 0) particle.y += H;
+        if (particle.y > H) particle.y -= H;
+
+        ctx.beginPath();
+        for (let i = 0; i < particle.trail.length; i++) {
+          const [tx, ty] = particle.trail[i];
+          if (i === 0) ctx.moveTo(tx, ty);
+          else ctx.lineTo(tx, ty);
+        }
+
+        const alpha = Math.min(0.95, 0.08 + speed * 0.14);
+        ctx.strokeStyle = `rgba(214,233,255,${alpha})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        drawFrog(particle, speed, t);
+
+        if (croaksEnabled && speed > 2.4 && Math.random() < 0.0012 * particle.croakBias) {
+          playRibbit(particle, speed, breath);
+        }
+      }
+
+      drawOperators(t);
+
+      const snapshot = Kernel.update({
+        operatorCount: operators.length,
+        avgSpeed: totalSpeed / Math.max(1, particles.length),
+        flowEnergy,
+        breathRate,
+      });
+
+      updateStateDisplay(snapshot);
+      operatorsCountEl.textContent = String(operators.length);
+      particlesCountEl.textContent = String(particles.length);
+
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener("resize", resize);
+    canvas.addEventListener("pointerdown", (event) => {
+      addOperator(event.clientX, event.clientY);
+    });
+
+    document.getElementById("clearOps").onclick = () => {
+      operators.length = 0;
+      whisperEl.textContent = "The operator lattice has been cleared.";
+    };
+
+    document.getElementById("resetParticles").onclick = () => {
+      resetParticles();
+      whisperEl.textContent = "The body has shed its prior turbulence.";
+    };
+
+    document.getElementById("toggleVectors").onclick = () => {
+      showVectors = !showVectors;
+    };
+
+    toggleCroaksButton.onclick = () => {
+      croaksEnabled = !croaksEnabled;
+      if (croaksEnabled) {
+        ensureAudio();
+        whisperEl.textContent = "The pond has woken. Tiny ribbits gather around the field.";
+      } else {
+        whisperEl.textContent = "The frogs still hop, but the chorus has gone quiet.";
+      }
+      updateChorusReadout();
+    };
+
+    document.getElementById("seedGoose").onclick = seedGooseTrace;
+
+    window.addEventListener("message", (event) => {
+      const data = event.data || {};
+      if (data.type === "mgc:spherai:seed") {
+        applyMgcPacket(data.packet);
+      }
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "1") modeEl.value = "singularity_attract";
+      if (event.key === "2") modeEl.value = "singularity_repulse";
+      if (event.key === "3") modeEl.value = "vortex_cw";
+      if (event.key === "4") modeEl.value = "vortex_ccw";
+      if (event.key === "5") modeEl.value = "shear_x";
+      if (event.key === "6") modeEl.value = "pulse";
+      if (event.key.toLowerCase() === "c") operators.length = 0;
+      if (event.key.toLowerCase() === "r") resetParticles();
+      if (event.key.toLowerCase() === "v") showVectors = !showVectors;
+      if (event.key.toLowerCase() === "g") seedGooseTrace();
+      if (event.key.toLowerCase() === "m") {
+        toggleCroaksButton.click();
+      }
+    });
+
+    resize();
+    resetParticles();
+    updateChorusReadout();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

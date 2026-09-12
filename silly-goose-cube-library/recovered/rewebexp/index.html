@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sphera Goose Surfaces</title>
+    <style>
+      :root {
+        --bg:
+          radial-gradient(circle at top, rgba(252, 198, 95, 0.14), transparent 28%),
+          linear-gradient(180deg, #f7f1e4 0%, #e7dcc4 50%, #d1c3a5 100%);
+        --panel: rgba(255, 251, 244, 0.94);
+        --panel-soft: rgba(255, 255, 255, 0.48);
+        --border: rgba(74, 61, 35, 0.16);
+        --text: #23302b;
+        --muted: #6b6d63;
+        --accent: #4f7f68;
+        --accent-strong: #2d5d48;
+        --shadow: 0 24px 72px rgba(84, 62, 23, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .shell {
+        padding: 20px;
+        border-radius: 28px;
+        border: 1px solid var(--border);
+        background:
+          radial-gradient(circle at top right, rgba(79, 127, 104, 0.12), transparent 30%),
+          var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      .lede {
+        max-width: 64ch;
+        margin-top: 10px;
+        color: #4c5f57;
+        line-height: 1.55;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      .card {
+        display: grid;
+        gap: 12px;
+        padding: 18px;
+        border-radius: 22px;
+        border: 1px solid var(--border);
+        background: var(--panel-soft);
+      }
+
+      .card p {
+        color: #53655e;
+        line-height: 1.5;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(79, 127, 104, 0.25);
+        background: rgba(79, 127, 104, 0.12);
+        color: var(--accent-strong);
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      a.secondary {
+        border-color: var(--border);
+        background: rgba(255, 255, 255, 0.55);
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="shell">
+        <p class="eyebrow">Sphera / Goose / Active Surfaces</p>
+        <h1>Goose cube launch pad</h1>
+        <p class="lede">
+          This is the active goose lane for the repo right now. The SM7 goose cube is the most
+          complete cube surface: seeded sheets, formula overrides, craft bench, and voxel hatch
+          all in one place. The older mixed goose pages are still here if you want the broader
+          mythline texture.
+        </p>
+
+        <section class="cards">
+          <article class="card">
+            <div>
+              <p class="eyebrow">Primary Cube Surface</p>
+              <h2>SM7 Goose Cube v0.1.0</h2>
+            </div>
+            <p>
+              A 64-sheet goose cube editor with craft output, local save state, ising drift, and
+              a voxel viewer.
+            </p>
+            <div class="actions">
+              <a href="./sm7-goose-cube-v0.1.0.html">Open goose cube</a>
+            </div>
+          </article>
+
+          <article class="card">
+            <div>
+              <p class="eyebrow">Legacy World Page</p>
+              <h2>grok.master.3.5</h2>
+            </div>
+            <p>
+              Goose-heavy mixed surface preserved as a reference artifact for older world framing
+              and visual tone.
+            </p>
+            <div class="actions">
+              <a class="secondary" href="./grok.master.3.5.html">Open legacy page</a>
+            </div>
+          </article>
+
+          <article class="card">
+            <div>
+              <p class="eyebrow">Legacy Mixed Surface</p>
+              <h2>sphera.3.5</h2>
+            </div>
+            <p>
+              Another preserved branch from the earlier mixed Spherai and goose phase.
+            </p>
+            <div class="actions">
+              <a class="secondary" href="./sphera.3.5.html">Open mixed artifact</a>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

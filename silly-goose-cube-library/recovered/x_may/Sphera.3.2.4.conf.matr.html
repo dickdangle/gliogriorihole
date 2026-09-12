@@ -1,0 +1,395 @@
+import { useState, useEffect, useRef } from "react";
+
+const W = 800, H = 800, CX = W/2, CY = H/2;
+const SHELLS = 5, RINGS = 7, TPR = 16;
+const GRID = 40;
+const TRAIL_LEN = 18;
+const SHELL_R = s => 45 + s * 58;
+const TILT = s => 0.30 + s * 0.03;
+const HUES = [0, 40, 90, 180, 260];
+
+function makeTiles() {
+  const t = [];
+  for (let s = 0; s < SHELLS; s++)
+    for (let r = 0; r < RINGS; r++)
+      for (let i = 0; i < TPR; i++)
+        t.push({ s, r, i, spin: Math.random()>0.5?1:-1,
+          vLon:(Math.random()-0.5)*0.02, vLat:(Math.random()-0.5)*0.01,
+          dLon:0, dLat:0, energy:0, pressure:0,
+          trail:[] // ghost trace history
+        });
+  return t;
+}
+
+function iIdx(tiles, s, r, i) {
+  return tiles.find(t => t.s===s && t.r===r && t.i===((i+TPR)%TPR));
+}
+
+export default function SupersphereWave() {
+  const canvasRef = useRef(null);
+  const tilesRef = useRef(makeTiles());
+  const frameRef = useRef(0);
+  const coneRef = useRef(0);
+  const runRef = useRef(true);
+  const pRef = useRef({
+    temp:2.3, amplitude:28, chaos:0.25, speed:1,
+    freq1:0.08, freq2:0.12, tilt:0.52,
+    colorMode:"void", gravity:true,
+    interpenetrate:true, sinews:true, ghosts:true,
+    sinewDepth:2, trailFade:0.7,
+  });
+  const [params, setParams] = useState(pRef.current);
+  const [running, setRunning] = useState(true);
+  const [stats, setStats] = useState({M:"0.000",frame:0});
+
+  const up = (k,v) => { pRef.current={...pRef.current,[k]:v}; setParams({...pRef.current}); };
+
+  function waveZ(gx,gy,t) {
+    const p=pRef.current;
+    const x=(gx/GRID-0.5)*2, y=(gy/GRID-0.5)*2;
+    const r=Math.sqrt(x*x+y*y);
+    const w1=Math.sin(r*p.freq1*80-t*p.speed*2.1)*p.amplitude;
+    const w2=Math.sin((x+y)*p.freq2*60-t*p.speed*1.7)*p.amplitude*0.6;
+    const w3=Math.sin(x*31.7+y*17.3+t*0.7)*Math.sin(y*23.1-x*11.9+t*1.1)*p.amplitude*p.chaos;
+    const env=Math.exp(-r*r*0.7);
+    const edge=1-Math.exp(-r*r*1.8);
+    return w1*env+w2*0.4+w3*edge;
+  }
+
+  function proj(x3,y3,z3) {
+    const sc=pRef.current.tilt;
+    return { px:CX+(x3-y3)*sc*7.2, py:CY+(x3+y3)*sc*5.8-z3*sc*0.85 };
+  }
+
+  function waveColor(z,maxZ,mode) {
+    const n=(z/(maxZ||1)+1)/2;
+    if(mode==="void")   return `hsl(${260+n*60},70%,${20+n*35}%)`;
+    if(mode==="ocean")  return `rgb(${n*40+10|0},${n*120+60|0},${n*140+100|0})`;
+    if(mode==="lava")   return `rgb(${n*200+55|0},${n*80|0},${(1-n)*40|0})`;
+    if(mode==="aurora") return `hsl(${(n*180+160+frameRef.current*20)%360},80%,${30+n*35}%)`;
+    return `hsl(${n*240},70%,50%)`;
+  }
+
+  function getTilePos(tile) {
+    const p=pRef.current;
+    const sR=SHELL_R(tile.s), tilt=TILT(tile.s);
+    const ringAngle=(tile.r/RINGS)*Math.PI+tile.dLat;
+    const lonAngle=(tile.i/TPR)*Math.PI*2+tile.dLon+coneRef.current*(1+tile.s*0.12);
+    const rY=Math.cos(Math.max(0.05,Math.min(Math.PI-0.05,ringAngle)));
+    const rS=Math.sin(Math.max(0.05,Math.min(Math.PI-0.05,ringAngle)));
+    const projR=sR*rS;
+    let waveOffset=0;
+    if(p.interpenetrate) {
+      const nx=(Math.cos(lonAngle)*projR/(GRID*7.2)+0.5)*GRID;
+      const ny=(Math.sin(lonAngle)*projR*tilt/(GRID*5.8)+0.5)*GRID;
+      waveOffset=waveZ(nx,ny,frameRef.current)*0.22;
+    }
+    const px=CX+Math.cos(lonAngle)*projR;
+    const py=CY+rY*sR*tilt*(-2.4)+Math.sin(lonAngle)*projR*tilt+waveOffset*14;
+    return {px, py, scale:rS, depth:rY+tile.s*0.01};
+  }
+
+  function stepIsing() {
+    const tiles=tilesRef.current;
+    const T=Math.max(pRef.current.temp,0.01);
+    for(let k=0;k<12;k++){
+      const i2=Math.floor(Math.random()*tiles.length);
+      const t=tiles[i2];
+      const nb=[
+        iIdx(tiles,t.s,t.r,t.i-1),iIdx(tiles,t.s,t.r,t.i+1),
+        iIdx(tiles,t.s,(t.r-1+RINGS)%RINGS,t.i),iIdx(tiles,t.s,(t.r+1)%RINGS,t.i),
+      ].filter(Boolean);
+      const sumN=nb.reduce((a,n)=>a+n.spin,0);
+      const dE=2*t.spin*sumN; t.energy=dE;
+      if(dE<0||Math.random()<Math.exp(-dE/T)) t.spin*=-1;
+    }
+    tiles.forEach(t=>{
+      const right=iIdx(tiles,t.s,t.r,t.i+1);
+      const up2=iIdx(tiles,t.s,(t.r+1)%RINGS,t.i);
+      const dLon=right?(right.spin-t.spin)*0.008:0;
+      const dLat=up2?(up2.spin-t.spin)*0.006:0;
+      t.pressure=Math.abs(dLon)+Math.abs(dLat);
+      t.vLon=(t.vLon+dLon)*0.92; t.vLat=(t.vLat+dLat)*0.92;
+      t.vLon=Math.max(-0.06,Math.min(0.06,t.vLon));
+      t.vLat=Math.max(-0.04,Math.min(0.04,t.vLat));
+      t.dLon=(t.dLon+t.vLon+Math.PI*2)%(Math.PI*2);
+      t.dLat=Math.max(-0.4,Math.min(0.4,t.dLat+t.vLat));
+      // record trail
+      const pos=getTilePos(t);
+      t.trail.push({px:pos.px,py:pos.py,spin:t.spin});
+      if(t.trail.length>TRAIL_LEN) t.trail.shift();
+    });
+    if(pRef.current.gravity){
+      for(let s=1;s<SHELLS;s++){
+        const inner=tiles.filter(t=>t.s===s-1);
+        const outer=tiles.filter(t=>t.s===s);
+        const iMag=inner.reduce((a,t)=>a+t.spin,0)/inner.length;
+        outer.forEach(t=>{t.vLon+=iMag*0.0008;});
+      }
+    }
+  }
+
+  function draw() {
+    const canvas=canvasRef.current; if(!canvas) return;
+    const ctx=canvas.getContext("2d");
+    const p=pRef.current;
+    const t=frameRef.current;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle="#020008"; ctx.fillRect(0,0,W,H);
+
+    // wave grid
+    const zGrid=[];
+    let maxZ=1;
+    for(let gy=0;gy<=GRID;gy++){
+      zGrid[gy]=[];
+      for(let gx=0;gx<=GRID;gx++){
+        const x3=(gx-GRID/2)*1.0,y3=(gy-GRID/2)*1.0;
+        const z=waveZ(gx,gy,t);
+        zGrid[gy][gx]={x3,y3,z};
+        if(Math.abs(z)>maxZ) maxZ=Math.abs(z);
+      }
+    }
+
+    const items=[];
+
+    // wave quads
+    for(let gy=0;gy<GRID;gy++){
+      for(let gx=0;gx<GRID;gx++){
+        const tl=zGrid[gy][gx],tr=zGrid[gy][gx+1];
+        const bl=zGrid[gy+1][gx],br=zGrid[gy+1][gx+1];
+        const avgZ=(tl.z+tr.z+bl.z+br.z)/4;
+        const ptl=proj(tl.x3,tl.y3,tl.z),ptr=proj(tr.x3,tr.y3,tr.z);
+        const pbl=proj(bl.x3,bl.y3,bl.z),pbr=proj(br.x3,br.y3,br.z);
+        const dx1=ptr.px-ptl.px,dy1=ptr.py-ptl.py;
+        const dx2=pbl.px-ptl.px,dy2=pbl.py-ptl.py;
+        if(dx1*dy2-dy1*dx2>0) continue;
+        const depthY=(ptl.py+ptr.py+pbl.py+pbr.py)/4;
+        items.push({type:"quad",depthY,avgZ,maxZ,ptl,ptr,pbl,pbr,mode:p.colorMode});
+      }
+    }
+
+    // tiles + trails + sinews
+    const tiles=tilesRef.current;
+    tiles.forEach(tile=>{
+      const pos=getTilePos(tile);
+      items.push({type:"tile",depthY:pos.py+tile.s*2,tile,pos});
+    });
+
+    items.sort((a,b)=>a.depthY-b.depthY);
+
+    // --- GHOST TRAILS (draw under everything) ---
+    if(p.ghosts){
+      tiles.forEach(tile=>{
+        const trail=tile.trail;
+        if(trail.length<2) return;
+        const hue=HUES[tile.s];
+        for(let k=1;k<trail.length;k++){
+          const alpha=((k/trail.length)*0.35)*p.trailFade;
+          const prev=trail[k-1],curr=trail[k];
+          ctx.beginPath();
+          ctx.moveTo(prev.px,prev.py);
+          ctx.lineTo(curr.px,curr.py);
+          ctx.strokeStyle=`hsla(${hue},80%,${curr.spin===1?65:35}%,${alpha})`;
+          ctx.lineWidth=0.8;
+          ctx.stroke();
+        }
+        // ghost dot at trail head
+        if(trail.length>0){
+          const head=trail[0];
+          ctx.beginPath(); ctx.arc(head.px,head.py,1.5,0,Math.PI*2);
+          ctx.fillStyle=`hsla(${HUES[tile.s]},70%,50%,0.15)`;
+          ctx.fill();
+        }
+      });
+    }
+
+    // --- BEZIER SINEWS ---
+    if(p.sinews){
+      const depth=Math.max(1,Math.min(3,pRef.current.sinewDepth|0));
+      tiles.forEach(tile=>{
+        const posA=getTilePos(tile);
+        const hue=HUES[tile.s];
+        // neighbors: longitudinal + latitudinal within sinewDepth
+        const nbs=[];
+        for(let d=1;d<=depth;d++){
+          nbs.push(iIdx(tiles,tile.s,tile.r,tile.i+d));
+          nbs.push(iIdx(tiles,tile.s,(tile.r+d)%RINGS,tile.i));
+        }
+        nbs.filter(Boolean).forEach(nb=>{
+          const posB=getTilePos(nb);
+          // only draw if both visible (scale>0.05)
+          if(posA.scale<0.05||posB.scale<0.05) return;
+          const agreement=tile.spin===nb.spin;
+          const tension=Math.abs(tile.pressure+nb.pressure)*0.5;
+          const alpha=agreement?0.12+tension*0.3:0.04+tension*0.15;
+          if(alpha<0.02) return;
+
+          // bezier control points: perpendicular bulge
+          const mx=(posA.px+posB.px)/2;
+          const my=(posA.py+posB.py)/2;
+          const dx=posB.px-posA.px, dy=posB.py-posA.py;
+          const len=Math.sqrt(dx*dx+dy*dy)||1;
+          // bulge perpendicular, magnitude proportional to pressure
+          const bulge=(tension*30+8)*(agreement?1:-1);
+          const cpx=mx+(-dy/len)*bulge;
+          const cpy=my+(dx/len)*bulge;
+
+          ctx.beginPath();
+          ctx.moveTo(posA.px,posA.py);
+          ctx.quadraticCurveTo(cpx,cpy,posB.px,posB.py);
+          ctx.strokeStyle=`hsla(${hue},${agreement?70:40}%,${agreement?60:40}%,${alpha})`;
+          ctx.lineWidth=agreement?0.6:0.3;
+          ctx.stroke();
+        });
+      });
+    }
+
+    // --- MAIN RENDER ITEMS ---
+    items.forEach(item=>{
+      if(item.type==="quad"){
+        const{ptl,ptr,pbl,pbr,avgZ,maxZ,mode}=item;
+        const col=waveColor(avgZ,maxZ,mode);
+        const n=(avgZ/maxZ+1)/2;
+        ctx.beginPath();
+        ctx.moveTo(ptl.px,ptl.py); ctx.lineTo(ptr.px,ptr.py);
+        ctx.lineTo(pbr.px,pbr.py); ctx.lineTo(pbl.px,pbl.py);
+        ctx.closePath();
+        ctx.fillStyle=col; ctx.globalAlpha=0.5+n*0.3; ctx.fill();
+        ctx.globalAlpha=0.1; ctx.strokeStyle=col; ctx.lineWidth=0.3; ctx.stroke();
+        ctx.globalAlpha=1;
+      } else {
+        const{tile,pos}=item;
+        const{px,py,scale}=pos;
+        const sz=3+scale*7;
+        const hue=HUES[tile.s];
+        const lit=tile.spin===1?55:22;
+        const sat=Math.min(70+tile.pressure*80,100);
+
+        if(tile.pressure>0.01){
+          ctx.beginPath(); ctx.arc(px,py,sz+tile.pressure*25,0,Math.PI*2);
+          const gl=ctx.createRadialGradient(px,py,0,px,py,sz+tile.pressure*25);
+          gl.addColorStop(0,`hsla(${hue},80%,60%,${tile.pressure*0.35})`);
+          gl.addColorStop(1,"transparent");
+          ctx.fillStyle=gl; ctx.fill();
+        }
+
+        ctx.save(); ctx.translate(px,py); ctx.rotate(tile.dLon*0.5);
+        ctx.fillStyle=`hsl(${hue},${sat}%,${lit}%)`;
+        ctx.strokeStyle=`hsla(${hue},60%,50%,0.5)`;
+        ctx.lineWidth=0.4;
+        ctx.fillRect(-sz/2,-sz/2,sz,sz);
+        ctx.strokeRect(-sz/2,-sz/2,sz,sz);
+        ctx.restore();
+
+        ctx.beginPath(); ctx.arc(px,py,1,0,Math.PI*2);
+        ctx.fillStyle=tile.spin===1?"rgba(255,255,255,0.6)":"rgba(60,60,60,0.4)";
+        ctx.fill();
+      }
+    });
+
+    // axes
+    ctx.globalAlpha=0.3;
+    [[proj(-GRID/2,0,0),proj(GRID/2,0,0),"#ff4444","X"],
+     [proj(0,-GRID/2,0),proj(0,GRID/2,0),"#44ff44","Y"],
+     [proj(0,0,-maxZ*1.3),proj(0,0,maxZ*1.3),"#4466ff","Z"]
+    ].forEach(([a,b,col,lbl])=>{
+      ctx.beginPath(); ctx.moveTo(a.px,a.py); ctx.lineTo(b.px,b.py);
+      ctx.strokeStyle=col; ctx.lineWidth=1.2; ctx.stroke();
+      ctx.fillStyle=col; ctx.font="10px monospace"; ctx.fillText(lbl,b.px+4,b.py);
+    });
+    ctx.globalAlpha=1;
+
+    // conic
+    for(let i=-2;i<=2;i++){
+      const a=coneRef.current+i*Math.PI/10;
+      ctx.beginPath(); ctx.moveTo(CX,CY);
+      ctx.lineTo(CX+Math.cos(a)*W*0.5,CY+Math.sin(a)*W*0.2);
+      ctx.strokeStyle=`rgba(255,240,100,${0.02+0.01*(2-Math.abs(i))})`;
+      ctx.lineWidth=1; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(CX,CY,5,0,Math.PI*2);
+    const og=ctx.createRadialGradient(CX,CY,0,CX,CY,5);
+    og.addColorStop(0,"#ffffff"); og.addColorStop(1,"rgba(255,255,100,0.2)");
+    ctx.fillStyle=og; ctx.fill();
+
+    ctx.fillStyle="#ffffff15"; ctx.font="10px monospace";
+    ctx.fillText(`M=${stats.M} T=${p.temp.toFixed(2)} amp=${p.amplitude|0} chaos=${p.chaos.toFixed(2)}`,12,H-12);
+  }
+
+  useEffect(()=>{
+    let af,last=0;
+    const loop=(ts)=>{
+      if(runRef.current&&ts-last>25){
+        stepIsing();
+        coneRef.current+=0.007;
+        frameRef.current+=0.016*pRef.current.speed;
+        if((frameRef.current*60|0)%8===0){
+          const M=tilesRef.current.reduce((a,t)=>a+t.spin,0)/tilesRef.current.length;
+          setStats({M:M.toFixed(3),frame:frameRef.current|0});
+        }
+        draw();
+        last=ts;
+      }
+      af=requestAnimationFrame(loop);
+    };
+    af=requestAnimationFrame(loop);
+    return ()=>cancelAnimationFrame(af);
+  },[]);
+
+  const sl=(k,min,max,step,col,label)=>(
+    <div style={{fontSize:11,color:"#555",display:"flex",alignItems:"center",gap:4}}>
+      <span style={{minWidth:52}}>{label}:</span>
+      <input type="range" min={min} max={max} step={step} value={params[k]}
+        onChange={e=>up(k,parseFloat(e.target.value))} style={{width:82}}/>
+      <span style={{color:col,minWidth:28}}>{params[k]?.toFixed?params[k].toFixed(2):params[k]}</span>
+    </div>
+  );
+  const ck=(k,label)=>(
+    <label style={{fontSize:11,color:"#555",display:"flex",alignItems:"center",gap:4,cursor:"pointer"}}>
+      <input type="checkbox" checked={params[k]} onChange={e=>up(k,e.target.checked)}/>
+      {label}
+    </label>
+  );
+
+  return (
+    <div style={{background:"#020008",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:16,fontFamily:"monospace",color:"#aaa"}}>
+      <div style={{marginBottom:4,letterSpacing:4,color:"#9775fa",fontSize:16}}>SUPERSPHERE × MANIFOLD v3</div>
+      <div style={{fontSize:10,color:"#1a1a1a",marginBottom:8}}>ghost traces · bezier sinews · ising tiles · wave fabric · conic ○</div>
+
+      <canvas ref={canvasRef} width={W} height={H}
+        style={{width:"100%",maxWidth:W,borderRadius:8,border:"1px solid #111133"}}/>
+
+      <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap",justifyContent:"center",alignItems:"center"}}>
+        <button onClick={()=>{runRef.current=!runRef.current;setRunning(r=>!r);}}
+          style={{background:running?"#1a3a1a":"#3a1a1a",color:running?"#69db7c":"#ff6b6b",border:`1px solid ${running?"#69db7c":"#ff6b6b"}`,borderRadius:4,padding:"4px 12px",cursor:"pointer",fontSize:11}}>
+          {running?"⏸":"▶"}
+        </button>
+        {sl("temp",0.1,5,0.05,"#ffd43b","T")}
+        {sl("amplitude",0,55,1,"#4dabf7","amp")}
+        {sl("chaos",0,1,0.01,"#ff6b6b","chaos")}
+        {sl("speed",0,3,0.05,"#69db7c","speed")}
+        {sl("freq1",0.01,0.3,0.005,"#9775fa","freq1")}
+        {sl("tilt",0.2,0.9,0.01,"#f783ac","tilt")}
+        {sl("sinewDepth",1,3,1,"#ffa94d","sinews")}
+        {sl("trailFade",0,1,0.05,"#63e6be","trail")}
+        {ck("gravity","grav")}
+        {ck("interpenetrate","∿interp")}
+        {ck("sinews","sinews")}
+        {ck("ghosts","👻ghosts")}
+        <div style={{display:"flex",gap:4}}>
+          {["void","ocean","lava","aurora"].map(m=>(
+            <button key={m} onClick={()=>up("colorMode",m)}
+              style={{background:params.colorMode===m?"#1a1a3a":"transparent",color:params.colorMode===m?"#9775fa":"#333",border:"1px solid #1a1a2a",borderRadius:4,padding:"3px 7px",cursor:"pointer",fontSize:10}}>
+              {m}
+            </button>
+          ))}
+        </div>
+        <button onClick={()=>{tilesRef.current=makeTiles();}}
+          style={{background:"#0a0a2a",color:"#4dabf7",border:"1px solid #4dabf7",borderRadius:4,padding:"4px 10px",cursor:"pointer",fontSize:11}}>⟳</button>
+      </div>
+      <div style={{marginTop:6,fontSize:11,color:"#333"}}>
+        M=<span style={{color:"#ffd43b"}}>{stats.M}</span> · frame=<span style={{color:"#9775fa"}}>{stats.frame}</span> · tiles=<span style={{color:"#4dabf7"}}>{SHELLS*RINGS*TPR}</span>
+      </div>
+    </div>
+  );
+}

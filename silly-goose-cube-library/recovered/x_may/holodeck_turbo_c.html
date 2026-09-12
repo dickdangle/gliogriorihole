@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Steganiphrication Station 🐸🪿</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;color:#c8d0b0;font-family:monospace;padding:16px;font-size:12px}
+h1{color:#c8b87a;font-size:15px;margin-bottom:4px}
+.sub{color:#5a6a4a;font-size:11px;margin-bottom:16px}
+.panel{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.box{background:#0d0f14;border:1px solid #2a3020;border-radius:4px;padding:12px}
+.box h2{font-size:11px;color:#7a8a6a;margin-bottom:8px;letter-spacing:1px}
+canvas{border:1px solid #2a3020;max-width:100%;display:block}
+textarea{width:100%;background:#060809;color:#a0b890;border:1px solid #2a3020;
+  border-radius:3px;padding:8px;font-family:monospace;font-size:10px;resize:vertical}
+button{background:#1a2010;color:#a0c870;border:1px solid #3a5020;border-radius:3px;
+  padding:6px 14px;cursor:pointer;font-family:monospace;font-size:11px;margin:4px 2px}
+button:hover{background:#253018;border-color:#5a7030}
+.btn-honk{background:#2a1a05;color:#d4a030;border-color:#7a5010}
+.btn-honk:hover{background:#3a2508}
+.stat{color:#5a8a5a;font-size:10px;margin-top:6px;line-height:1.8}
+.stat b{color:#90c060}
+#log{height:120px;overflow-y:auto;background:#060809;border:1px solid #2a3020;
+  border-radius:3px;padding:8px;font-size:10px;color:#6a7a5a;line-height:1.7}
+.err{color:#c04040}.ok{color:#60c060}.warn{color:#c0a030}.honk{color:#d4a030}
+input[type=text],input[type=password]{background:#060809;color:#a0b890;
+  border:1px solid #2a3020;border-radius:3px;padding:5px 8px;
+  font-family:monospace;font-size:11px;width:100%;margin-bottom:6px}
+label{color:#5a6a4a;font-size:10px;display:block;margin-bottom:2px}
+.code-out{height:200px;font-size:9px}
+.full{grid-column:1/-1}
+</style>
+</head>
+<body>
+<h1>🐸 STEGANIPHRICATION STATION 🪿</h1>
+<div class="sub">LSB stego + XOR cipher + Turbo C holodeck source encoder | MGC.ai v0.5</div>
+
+<div class="panel">
+  <!-- LEFT: image input -->
+  <div class="box">
+    <h2>CARRIER IMAGE</h2>
+    <canvas id="cv" width="320" height="200"></canvas>
+    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+      <button onclick="loadDefault()">load scribe pepe 🐸</button>
+      <button onclick="document.getElementById('fi').click()">upload image</button>
+      <input type="file" id="fi" accept="image/*" style="display:none" onchange="loadFile(this)"/>
+    </div>
+    <div class="stat" id="img-stat">no image loaded</div>
+  </div>
+
+  <!-- RIGHT: payload -->
+  <div class="box">
+    <h2>PAYLOAD</h2>
+    <label>XOR key (passphrase)</label>
+    <input type="password" id="xkey" value="HONK_MGC_GOOSE_64" placeholder="xor key..."/>
+    <label>payload (auto-filled with holodeck C source)</label>
+    <textarea id="payload" class="code-out" readonly></textarea>
+    <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">
+      <button onclick="loadCSource()">load holodeck.c 🪿</button>
+      <button onclick="document.getElementById('pf').click()">load file</button>
+      <input type="file" id="pf" style="display:none" onchange="loadPayloadFile(this)"/>
+    </div>
+    <div class="stat" id="pay-stat">no payload loaded</div>
+  </div>
+
+  <!-- ENCODE -->
+  <div class="box">
+    <h2>ENCODE → STEGO IMAGE</h2>
+    <div class="stat" id="enc-stat">ready</div>
+    <div style="margin-top:8px">
+      <button class="btn-honk" onclick="encode()">🪿 STEGANIPHRICATE</button>
+      <button onclick="downloadStego()">↓ download stego.png</button>
+    </div>
+    <canvas id="out" width="320" height="200" style="margin-top:8px;border:1px solid #3a4020"></canvas>
+  </div>
+
+  <!-- DECODE -->
+  <div class="box">
+    <h2>DECODE ← EXTRACT</h2>
+    <label>XOR key to decrypt</label>
+    <input type="password" id="dkey" value="HONK_MGC_GOOSE_64" placeholder="xor key..."/>
+    <button onclick="document.getElementById('df').click()">load stego image</button>
+    <input type="file" id="df" accept="image/*" style="display:none" onchange="loadDecode(this)"/>
+    <div style="margin-top:6px">
+      <button onclick="decode()">🔍 extract payload</button>
+    </div>
+    <div class="stat" id="dec-stat">no stego image loaded</div>
+    <textarea id="decoded" class="code-out" style="margin-top:6px;height:120px" readonly></textarea>
+  </div>
+
+  <!-- LOG -->
+  <div class="box full">
+    <h2>OPERATION LOG</h2>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+// ── utils ──────────────────────────────────────────────────
+const log = (msg,cls='')=>{
+  const d=document.getElementById('log');
+  d.innerHTML+=`<div class="${cls}">${msg}</div>`;
+  d.scrollTop=d.scrollHeight;
+};
+
+// FNV-32 for payload integrity check
+function fnv32(str){
+  let h=0x811c9dc5>>>0;
+  for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}
+  return h;
+}
+
+// XOR cipher
+function xorCipher(data, key){
+  const out=new Uint8Array(data.length);
+  for(let i=0;i<data.length;i++) out[i]=data[i]^key.charCodeAt(i%key.length);
+  return out;
+}
+
+// ── image state ────────────────────────────────────────────
+let carrierData=null, stegoData=null, decodeData=null;
+
+function loadDefault(){
+  // draw a placeholder "scribe pepe" in canvas since we can't fetch cross-origin
+  const cv=document.getElementById('cv');
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#1a2a2a'; ctx.fillRect(0,0,320,200);
+  // desk
+  ctx.fillStyle='#7a5030'; ctx.fillRect(0,150,320,50);
+  // body
+  ctx.fillStyle='#7ab0a0'; ctx.ellipse(160,130,50,60,0,0,Math.PI*2); ctx.fill();
+  // head
+  ctx.fillStyle='#7ab0a0'; ctx.beginPath(); ctx.ellipse(160,80,45,42,0,0,Math.PI*2); ctx.fill();
+  // shirt
+  ctx.fillStyle='#806090'; ctx.fillRect(120,120,80,50);
+  // eyes
+  ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.ellipse(148,78,8,6,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(172,78,8,6,0,0,Math.PI*2); ctx.fill();
+  // mouth
+  ctx.fillStyle='#d04040'; ctx.beginPath(); ctx.ellipse(160,96,18,8,0,0,Math.PI*2); ctx.fill();
+  // ears
+  ctx.fillStyle='#6a9a8a'; ctx.beginPath(); ctx.ellipse(118,72,12,18,-.3,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(202,72,12,18,.3,0,Math.PI*2); ctx.fill();
+  // quill
+  ctx.strokeStyle='#e8d0a0'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(155,110); ctx.bezierCurveTo(130,70,80,20,60,10); ctx.stroke();
+  ctx.fillStyle='#e8d0a0';
+  for(let i=0;i<8;i++){
+    ctx.beginPath();
+    ctx.ellipse(60+i*10,10+i*8,6,20,-.8+i*.05,0,Math.PI*2);
+    ctx.globalAlpha=0.4; ctx.fill(); ctx.globalAlpha=1;
+  }
+  // ink bottle
+  ctx.fillStyle='#304030'; ctx.fillRect(88,138,18,16);
+  ctx.fillStyle='#1a3020'; ctx.fillRect(91,134,12,6);
+  // paper
+  ctx.fillStyle='#f0ead8'; ctx.fillRect(110,148,80,10);
+  // lamp
+  ctx.strokeStyle='#3a3a3a'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(50,148); ctx.lineTo(55,120); ctx.lineTo(70,115); ctx.stroke();
+  ctx.fillStyle='#204020'; ctx.beginPath(); ctx.ellipse(70,110,20,8,-.3,0,Math.PI*2); ctx.fill();
+
+  carrierData = ctx.getImageData(0,0,320,200);
+  document.getElementById('img-stat').innerHTML =
+    `<b>carrier loaded:</b> 320×200 synthetic pepe 🐸<br>capacity: ${Math.floor(320*200*3/8)} bytes`;
+  log('🐸 scribe pepe loaded as carrier (synthetic — upload the real one for max lore)','ok');
+}
+
+function loadFile(input){
+  const f=input.files[0]; if(!f) return;
+  const img=new Image();
+  img.onload=()=>{
+    const cv=document.getElementById('cv');
+    cv.width=img.width; cv.height=img.height;
+    const ctx=cv.getContext('2d');
+    ctx.drawImage(img,0,0);
+    carrierData=ctx.getImageData(0,0,img.width,img.height);
+    const cap=Math.floor(img.width*img.height*3/8);
+    document.getElementById('img-stat').innerHTML=
+      `<b>carrier:</b> ${img.width}×${img.height} | capacity: <b>${cap}</b> bytes`;
+    log(`📷 image loaded: ${f.name} (${img.width}×${img.height}) cap=${cap}B`,'ok');
+  };
+  img.src=URL.createObjectURL(f);
+}
+
+// ── payload ────────────────────────────────────────────────
+const HOLODECK_C = `/* GOOSE HOLODECK v0.5 — Turbo C / ANSI C DOS
+ * MGC.ai | SM7 charset | gice physics | HONK
+ * Compile: tcc holodeck.c -o holodeck.exe
+ * Or:      gcc -o holodeck holodeck.c (Linux/Mac terminal)
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#ifdef _WIN32
+#include <conio.h>
+#include <windows.h>
+#define SLEEP(ms) Sleep(ms)
+#define KBHIT() _kbhit()
+#define GETCH() _getch()
+#else
+#include <unistd.h>
+#include <termios.h>
+#include <fcntl.h>
+#define SLEEP(ms) usleep((ms)*1000)
+int KBHIT(){
+  struct termios oldt,newt; int ch,r;
+  tcgetattr(STDIN_FILENO,&oldt); newt=oldt;
+  newt.c_lflag&=~(ICANON|ECHO);
+  tcsetattr(STDIN_FILENO,TCSANOW,&newt);
+  int f=fcntl(STDIN_FILENO,F_GETFL,0);
+  fcntl(STDIN_FILENO,F_SETFL,f|O_NONBLOCK);
+  ch=getchar(); r=(ch!=EOF);
+  if(r) ungetc(ch,stdin);
+  tcsetattr(STDIN_FILENO,TCSANOW,&oldt);
+  fcntl(STDIN_FILENO,F_SETFL,f);
+  return r;
+}
+int GETCH(){return getchar();}
+#endif
+
+#define CX 64
+#define CY 24
+#define SM7 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%%^&*()_+-=[]{}|;:,.<>?/~\`"
+#define RARE "!@#$%%^&*~\`|"
+#define MAX_GICE 8
+
+typedef struct {
+  char c;
+  int bloom;
+  int spin;
+} Vox;
+
+typedef struct {
+  double x,y,vx,vy;
+  int chirality;
+  int shadow;
+  char collected[32];
+  char name[16];
+} Gice;
+
+Vox grid[CY][CX];
+Gice gice[MAX_GICE];
+int gcount=0, honkcount=0, tick=0;
+char pathchars[64]="";
+char sm7[128], rare[32];
+
+unsigned int fnv32(const char*s){
+  unsigned int h=0x811c9dc5u;
+  while(*s){h^=(unsigned char)*s++;h*=0x01000193u;}
+  return h;
+}
+
+int is_rare(char c){return strchr(rare,c)!=NULL;}
+int is_vowel(char c){return strchr("AEIOUaeiou",c)!=NULL;}
+char rand_sm7(){return sm7[rand()%strlen(sm7)];}
+
+void init_grid(){
+  int x,y;
+  for(y=0;y<CY;y++)for(x=0;x<CX;x++){
+    grid[y][x].c=rand_sm7();
+    grid[y][x].bloom=0;
+    grid[y][x].spin=(rand()%2)?1:-1;
+  }
+}
+
+void spawn_gice(){
+  if(gcount>=MAX_GICE)return;
+  Gice*g=&gice[gcount];
+  g->x=rand()%CX; g->y=rand()%CY;
+  g->vx=(rand()%100-50)/200.0;
+  g->vy=(rand()%100-50)/200.0;
+  g->chirality=(rand()%2)?1:-1;
+  g->shadow=(rand()%100<8);
+  g->collected[0]=0;
+  sprintf(g->name,"G%X",fnv32(g->name)&0xFFFF);
+  gcount++;
+}
+
+void honk(){
+  int g; honkcount++;
+  for(g=0;g<gcount;g++){
+    gice[g].vx+=(rand()%100-50)/120.0;
+    gice[g].vy+=(rand()%100-50)/120.0;
+  }
+  printf("\\a"); /* terminal bell = HONK */
+}
+
+void physics_tick(){
+  int g,x,y; tick++;
+  for(g=0;g<gcount;g++){
+    Gice*gi=&gice[g];
+    /* drift toward rare */
+    int bx=-1,by=-1; double bd=999;
+    for(y=(int)gi->y-3;y<=(int)gi->y+3;y++)
+    for(x=(int)gi->x-3;x<=(int)gi->x+3;x++){
+      if(x<0||x>=CX||y<0||y>=CY)continue;
+      if(is_rare(grid[y][x].c)){
+        double d=(x-gi->x)*(x-gi->x)+(y-gi->y)*(y-gi->y);
+        if(d<bd){bd=d;bx=x;by=y;}
+      }
+    }
+    if(bx>=0&&bd<16){
+      gi->vx+=(bx-gi->x)/(bd+.01)*.015;
+      gi->vy+=(by-gi->y)/(bd+.01)*.015;
+    }
+    /* chirality curl */
+    double nvx=gi->vx+gi->chirality*gi->vy*.05;
+    double nvy=gi->vy-gi->chirality*gi->vx*.05;
+    gi->vx=nvx; gi->vy=nvy;
+    /* damping */
+    gi->vx*=.96; gi->vy*=.96;
+    /* clamp */
+    double spd=gi->vx*gi->vx+gi->vy*gi->vy;
+    if(spd>.25){spd=.5/spd;gi->vx*=spd;gi->vy*=spd;}
+    /* move */
+    gi->x+=gi->vx; gi->y+=gi->vy;
+    if(gi->x<0){gi->x=0;gi->vx*=-.7;}
+    if(gi->x>=CX){gi->x=CX-1;gi->vx*=-.7;}
+    if(gi->y<0){gi->y=0;gi->vy*=-.7;}
+    if(gi->y>=CY){gi->y=CY-1;gi->vy*=-.7;}
+    /* trail stamp + collect */
+    int cx=(int)gi->x, cy=(int)gi->y;
+    grid[cy][cx].bloom=5;
+    char c=grid[cy][cx].c;
+    if(is_rare(c)&&!strchr(gi->collected,c)){
+      int l=strlen(gi->collected);
+      if(l<31){gi->collected[l]=c;gi->collected[l+1]=0;}
+      if(!strchr(pathchars,c)){
+        int pl=strlen(pathchars);
+        if(pl<63){pathchars[pl]=c;pathchars[pl+1]=0;}
+      }
+    }
+  }
+  /* ising decay */
+  for(x=0;x<40;x++){
+    int rx=rand()%CX,ry=rand()%CY;
+    if(grid[ry][rx].bloom>0)grid[ry][rx].bloom--;
+  }
+}
+
+void render(){
+  /* ANSI escape: clear screen */
+  printf("\\033[2J\\033[H");
+  int x,y;
+  for(y=0;y<CY;y++){
+    for(x=0;x<CX;x++){
+      char c=grid[y][x].c;
+      int bloom=grid[y][x].bloom;
+      /* check if a gice is here */
+      int occupied=0,shadow=0,g;
+      for(g=0;g<gcount;g++){
+        if((int)gice[g].x==x&&(int)gice[g].y==y){
+          occupied=1;shadow=gice[g].shadow;break;
+        }
+      }
+      if(occupied){
+        if(shadow) printf("\\033[35m@\\033[0m"); /* magenta @ = shadow */
+        else       printf("\\033[33mG\\033[0m"); /* yellow G = gice */
+      } else if(bloom>3){
+        printf("\\033[93m%c\\033[0m",c); /* bright yellow bloom */
+      } else if(is_rare(c)){
+        printf("\\033[33m%c\\033[0m",c); /* gold rare */
+      } else if(is_vowel(c)){
+        printf("\\033[36m%c\\033[0m",c); /* cyan vowel */
+      } else {
+        printf("\\033[34m%c\\033[0m",c); /* blue base */
+      }
+    }
+    printf("\\n");
+  }
+  /* HUD */
+  printf("\\033[32m[GOOSE HOLODECK v0.5]\\033[0m ");
+  printf("tick:%d honks:%d gice:%d rare:%d\\n",tick,honkcount,gcount,
+    (int)strlen(pathchars));
+  printf("\\033[33mpath: %s\\033[0m\\n",strlen(pathchars)>=3?pathchars:"...");
+  printf("\\033[34mSPC=HONK  G=spawn  Q=quit  R=reset\\033[0m\\n");
+}
+
+int main(){
+  strcpy(sm7,SM7); strcpy(rare,RARE);
+  srand((unsigned)time(NULL));
+  init_grid();
+  spawn_gice(); spawn_gice(); spawn_gice();
+  printf("\\033[2J\\033[H");
+  printf("\\033[33m🪿 GOOSE HOLODECK v0.5 — MGC.ai\\033[0m\\n");
+  printf("Booting 64x24 voxel grid...\\n");
+  SLEEP(800);
+  while(1){
+    physics_tick();
+    render();
+    if(KBHIT()){
+      int k=GETCH();
+      if(k=='q'||k=='Q')break;
+      if(k==' ')honk();
+      if(k=='g'||k=='G')spawn_gice();
+      if(k=='r'||k=='R'){
+        init_grid(); gcount=0; tick=0;
+        honkcount=0; pathchars[0]=0;
+        spawn_gice(); spawn_gice();
+      }
+    }
+    SLEEP(120);
+  }
+  printf("\\033[2J\\033[H\\033[33mHONK. goodbye.\\033[0m\\n");
+  return 0;
+}`;
+
+function loadCSource(){
+  document.getElementById('payload').value = HOLODECK_C;
+  const bytes = new TextEncoder().encode(HOLODECK_C);
+  const hash = fnv32(HOLODECK_C).toString(16).toUpperCase();
+  document.getElementById('pay-stat').innerHTML =
+    `<b>holodeck.c loaded:</b> ${bytes.length} bytes | FNV32: <b>${hash}</b>`;
+  log(`🪿 holodeck.c loaded (${bytes.length}B) FNV32=${hash}`,'ok');
+}
+
+function loadPayloadFile(input){
+  const f=input.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    document.getElementById('payload').value=e.target.result;
+    const bytes=new TextEncoder().encode(e.target.result);
+    document.getElementById('pay-stat').innerHTML=
+      `<b>${f.name}:</b> ${bytes.length} bytes`;
+    log(`📄 payload loaded: ${f.name} (${bytes.length}B)`,'ok');
+  };
+  r.readAsText(f);
+}
+
+// ── encode ─────────────────────────────────────────────────
+function encode(){
+  if(!carrierData){log('❌ no carrier image','err');return;}
+  const txt=document.getElementById('payload').value;
+  if(!txt){log('❌ no payload','err');return;}
+  const key=document.getElementById('xkey').value||'HONK';
+
+  const raw=new TextEncoder().encode(txt);
+  const hash=fnv32(txt);
+  // header: magic(4) + length(4) + fnv32(4) = 12 bytes
+  const header=new Uint8Array(12);
+  const magic=[0x47,0x4F,0x4F,0x53]; // "GOOS"
+  header.set(magic,0);
+  header[4]=(raw.length>>24)&0xff;
+  header[5]=(raw.length>>16)&0xff;
+  header[6]=(raw.length>>8)&0xff;
+  header[7]=raw.length&0xff;
+  header[8]=(hash>>24)&0xff;
+  header[9]=(hash>>16)&0xff;
+  header[10]=(hash>>8)&0xff;
+  header[11]=hash&0xff;
+
+  const payload=new Uint8Array(header.length+raw.length);
+  payload.set(header,0);
+  payload.set(raw,12);
+
+  // XOR encrypt
+  const encrypted=xorCipher(payload,key);
+
+  const cap=Math.floor(carrierData.data.length/4*3/8);
+  if(encrypted.length>cap){
+    log(`❌ payload too large: ${encrypted.length}B > ${cap}B capacity`,'err');
+    return;
+  }
+
+  // LSB encode into copy of carrier
+  const out=document.getElementById('out');
+  out.width=carrierData.width; out.height=carrierData.height;
+  const octx=out.getContext('2d');
+  const outImg=new ImageData(
+    new Uint8ClampedArray(carrierData.data),
+    carrierData.width,carrierData.height
+  );
+  const d=outImg.data;
+  let bitIdx=0;
+  for(let i=0;i<encrypted.length;i++){
+    for(let b=7;b>=0;b--){
+      const bit=(encrypted[i]>>b)&1;
+      // skip alpha channel (every 4th byte)
+      let px=bitIdx;
+      let channel=px%3;
+      let pixel=Math.floor(px/3);
+      let bytePos=pixel*4+channel;
+      d[bytePos]=(d[bytePos]&0xFE)|bit;
+      bitIdx++;
+    }
+  }
+  octx.putImageData(outImg,0,0);
+  stegoData=outImg;
+
+  document.getElementById('enc-stat').innerHTML=
+    `<b>encoded:</b> ${encrypted.length}B into ${carrierData.width}×${carrierData.height} | ` +
+    `key: ${key.slice(0,4)}... | FNV32: ${hash.toString(16).toUpperCase()}`;
+  log(`✦ steganiphricated: ${raw.length}B payload + 12B header → ${encrypted.length}B XOR'd into image`,'ok');
+  log(`  magic: GOOS | FNV32: ${hash.toString(16).toUpperCase()} | key: ${key.slice(0,4)}...`,'warn');
+}
+
+function downloadStego(){
+  if(!stegoData){log('❌ encode first','err');return;}
+  const cv=document.getElementById('out');
+  const a=document.createElement('a');
+  a.download='holodeck_pepe_stego.png';
+  a.href=cv.toDataURL('image/png');
+  a.click();
+  log('↓ downloaded holodeck_pepe_stego.png','ok');
+}
+
+// ── decode ─────────────────────────────────────────────────
+let decodeImgData=null;
+function loadDecode(input){
+  const f=input.files[0]; if(!f) return;
+  const img=new Image();
+  img.onload=()=>{
+    const tmp=document.createElement('canvas');
+    tmp.width=img.width; tmp.height=img.height;
+    tmp.getContext('2d').drawImage(img,0,0);
+    decodeImgData=tmp.getContext('2d').getImageData(0,0,img.width,img.height);
+    document.getElementById('dec-stat').innerHTML=
+      `<b>stego image:</b> ${img.width}×${img.height}`;
+    log(`🔍 stego image loaded: ${f.name}`,'ok');
+  };
+  img.src=URL.createObjectURL(f);
+}
+
+function decode(){
+  if(!decodeImgData){log('❌ load stego image first','err');return;}
+  const key=document.getElementById('dkey').value||'HONK';
+  const d=decodeImgData.data;
+
+  // extract all LSBs
+  const totalBits=Math.floor(d.length/4*3);
+  const totalBytes=Math.floor(totalBits/8);
+  const raw=new Uint8Array(totalBytes);
+  let bitIdx=0;
+  for(let i=0;i<totalBytes;i++){
+    let byte=0;
+    for(let b=7;b>=0;b--){
+      let px=bitIdx;
+      let channel=px%3, pixel=Math.floor(px/3);
+      let bytePos=pixel*4+channel;
+      byte|=((d[bytePos]&1)<<b);
+      bitIdx++;
+    }
+    raw[i]=byte;
+  }
+
+  // XOR decrypt
+  const decrypted=xorCipher(raw,key);
+
+  // check magic
+  if(decrypted[0]!==0x47||decrypted[1]!==0x4F||decrypted[2]!==0x4F||decrypted[3]!==0x53){
+    log('❌ magic mismatch — wrong key or not a stego image','err');
+    document.getElementById('dec-stat').textContent='bad magic / wrong key';
+    return;
+  }
+
+  const len=(decrypted[4]<<24)|(decrypted[5]<<16)|(decrypted[6]<<8)|decrypted[7];
+  const storedHash=(decrypted[8]<<24)|(decrypted[9]<<16)|(decrypted[10]<<8)|decrypted[11];
+  const payload=decrypted.slice(12,12+len);
+  const text=new TextDecoder().decode(payload);
+  const actualHash=fnv32(text);
+
+  document.getElementById('decoded').value=text;
+  const hashOk=((storedHash>>>0)===(actualHash>>>0));
+  document.getElementById('dec-stat').innerHTML=
+    `<b>extracted:</b> ${len}B | FNV32 ${hashOk?'✓ match':'✗ MISMATCH'} | key: ${key.slice(0,4)}...`;
+  log(`🔍 extracted ${len}B | FNV32 ${hashOk?'✓':'✗'} | first 40 chars: ${text.slice(0,40)}...`,hashOk?'ok':'err');
+}
+
+// ── boot ──────────────────────────────────────────────────
+loadDefault();
+loadCSource();
+log('🐸🪿 steganiphrication station online','ok');
+log('  encode: carrier image + holodeck.c + XOR key → stego PNG','warn');
+log('  decode: stego PNG + key → extract holodeck.c source','warn');
+log('  magic header: GOOS | integrity: FNV32','warn');
+</script>
+</body>
+</html>

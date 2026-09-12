@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>OASP v0.3 — ECC Scalar + Vector Field</title>
+<style>
+html,body{
+    margin:0;
+    background:#000814;
+    overflow:hidden;
+    font-family:system-ui;
+    color:#0ff;
+}
+canvas{display:block;}
+#ui{
+    position:absolute;
+    bottom:30px;
+    left:50%;
+    transform:translateX(-50%);
+    text-align:center;
+}
+button{
+    padding:14px 28px;
+    border-radius:14px;
+    border:none;
+    font-weight:600;
+    background:linear-gradient(45deg,#00ffff,#0066ff);
+    cursor:pointer;
+}
+#sig{margin-top:10px;font-size:12px;}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="ui">
+<button onclick="boot()">BOOT ECC SIGNATURE</button>
+<div id="sig"></div>
+</div>
+
+<script>
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
+
+/* ===== secp256k1 parameters ===== */
+const p=BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+const a=0n;
+const b=7n;
+const Gx=BigInt("55066263022277343669578718895168534326250603453777594175500187360389116729240");
+const Gy=BigInt("32670510020758816978083085130507043184471273380659243275938904335757337482424");
+const G={x:Gx,y:Gy};
+
+function mod(n){ return ((n%p)+p)%p; }
+
+function inv(n){
+    return pow(n,p-2n);
+}
+
+function pow(base,exp){
+    let result=1n;
+    base=mod(base);
+    while(exp>0){
+        if(exp&1n) result=mod(result*base);
+        base=mod(base*base);
+        exp>>=1n;
+    }
+    return result;
+}
+
+function ecAdd(P,Q){
+    if(P===null) return Q;
+    if(Q===null) return P;
+
+    if(P.x===Q.x && P.y!==Q.y) return null;
+
+    let m;
+    if(P.x===Q.x){
+        m=mod((3n*P.x*P.x+a)*inv(2n*P.y));
+    }else{
+        m=mod((Q.y-P.y)*inv(Q.x-P.x));
+    }
+
+    let rx=mod(m*m-P.x-Q.x);
+    let ry=mod(m*(P.x-rx)-P.y);
+    return {x:rx,y:ry};
+}
+
+function ecMul(k,P){
+    let R=null;
+    while(k>0n){
+        if(k&1n) R=ecAdd(R,P);
+        P=ecAdd(P,P);
+        k>>=1n;
+    }
+    return R;
+}
+
+/* ===== physics ===== */
+
+let bodies=[];
+let eccPoint=null;
+let tick=1n;
+let audioCtx;
+
+function boot(){
+
+    bodies=[];
+    for(let i=0;i<4;i++){
+        bodies.push({
+            x:(Math.random()-0.5)*300,
+            y:(Math.random()-0.5)*300,
+            vx:(Math.random()-0.5)*2,
+            vy:(Math.random()-0.5)*2,
+            m:Math.random()*4+1
+        });
+    }
+
+    tick=1n;
+    eccPoint=G;
+
+    document.getElementById("sig").innerText="Running...";
+    animate();
+    startAudio();
+}
+
+function physicsStep(){
+    const Gconst=0.02;
+    const dt=0.6;
+
+    for(let i=0;i<bodies.length;i++){
+        let ax=0, ay=0;
+        for(let j=0;j<bodies.length;j++){
+            if(i===j) continue;
+            let dx=bodies[j].x-bodies[i].x;
+            let dy=bodies[j].y-bodies[i].y;
+            let d=dx*dx+dy*dy+0.1;
+            let f=Gconst*bodies[j].m/d;
+            ax+=f*dx;
+            ay+=f*dy;
+        }
+        bodies[i].vx+=ax*dt;
+        bodies[i].vy+=ay*dt;
+    }
+    for(let b of bodies){
+        b.x+=b.vx*dt;
+        b.y+=b.vy*dt;
+    }
+}
+
+function animate(){
+    ctx.fillStyle="rgba(0,0,20,0.25)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.save();
+    ctx.translate(canvas.width/2,canvas.height/2);
+
+    physicsStep();
+
+    /* ECC scalar progression */
+    tick+=1n;
+    eccPoint=ecMul(tick,G);
+
+    /* Draw bodies and velocity vectors */
+    bodies.forEach(b=>{
+        ctx.beginPath();
+        ctx.arc(b.x,b.y,5,0,Math.PI*2);
+        ctx.fillStyle="#0ff";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(b.x,b.y);
+        ctx.lineTo(b.x+b.vx*20,b.y+b.vy*20);
+        ctx.strokeStyle="rgba(0,255,255,0.6)";
+        ctx.stroke();
+    });
+
+    /* ECC vector visualization */
+    if(eccPoint){
+        let ex=Number(eccPoint.x%1000n)-500;
+        let ey=Number(eccPoint.y%1000n)-500;
+
+        ctx.beginPath();
+        ctx.moveTo(0,0);
+        ctx.lineTo(ex/2,ey/2);
+        ctx.strokeStyle="rgba(255,0,255,0.8)";
+        ctx.lineWidth=2;
+        ctx.stroke();
+    }
+
+    ctx.restore();
+
+    requestAnimationFrame(animate);
+}
+
+/* ===== audio ===== */
+
+function startAudio(){
+    if(!audioCtx){
+        audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    }
+
+    const osc=audioCtx.createOscillator();
+    const gain=audioCtx.createGain();
+
+    osc.type="sine";
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+
+    function update(){
+        if(eccPoint){
+            let fx=Number(eccPoint.x%1000n);
+            let fy=Number(eccPoint.y%1000n);
+
+            osc.frequency.value=100+fx;
+            gain.gain.value=(fy%100)/200;
+        }
+        requestAnimationFrame(update);
+    }
+    update();
+}
+</script>
+
+</body>
+</html>

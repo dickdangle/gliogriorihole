@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Goose Holodeck v0.5</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;color:#e0d8c0;font-family:monospace;overflow:hidden;user-select:none}
+#cv{display:block;width:100vw;height:100vh}
+#hud{position:fixed;top:12px;left:12px;font-size:11px;line-height:1.8;color:#7a8a6a;pointer-events:none}
+#hud b{color:#c8b87a}
+#spell{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);font-size:13px;letter-spacing:3px;color:#8aaa6a;text-shadow:0 0 8px #4a7a3a;pointer-events:none;min-width:200px;text-align:center}
+#msg{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:15px;color:#e8c87a;text-shadow:0 0 12px #a87a20;pointer-events:none;opacity:0;transition:opacity .3s}
+#controls{position:fixed;bottom:16px;right:16px;font-size:10px;color:#4a5a3a;line-height:2}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud">
+  <b>GOOSE HOLODECK</b> v0.5<br>
+  gice: <b id="h-gice">0</b> &nbsp; rare: <b id="h-rare">0</b><br>
+  honks: <b id="h-honk">0</b> &nbsp; tick: <b id="h-tick">0</b><br>
+  path: <b id="h-path">—</b>
+</div>
+<div id="spell"></div>
+<div id="msg" id="msg"></div>
+<div id="controls">
+  [SPACE] honk &nbsp; [R] reset &nbsp; [click] summon gice
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = ()=>cv.width, H = ()=>cv.height;
+
+// SM7 charset
+const SM7 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?/~`';
+const RARE = '!@#$%^&*~`|';
+const isRare = c => RARE.includes(c);
+
+// FNV-64 style hash for shadow goose identity (32-bit approximation)
+function fnv32(str) {
+  let h = 0x811c9dc5;
+  for (let i=0;i<str.length;i++) { h ^= str.charCodeAt(i); h = (h*0x01000193)>>>0; }
+  return h;
+}
+
+// Cube geometry
+const CUBE_SIZE = 8; // voxels per side
+let cubeAngleX = 0.45, cubeAngleY = 0.6;
+let isDragging = false, lastMX = 0, lastMY = 0;
+
+// Voxel grid
+const G = {};
+function key(x,y,z){return `${x},${y},${z}`}
+function gget(x,y,z){return G[key(x,y,z)]||null}
+function gset(x,y,z,v){G[key(x,y,z)]=v}
+
+// Init voxels
+function initGrid() {
+  for(let x=0;x<CUBE_SIZE;x++)
+  for(let y=0;y<CUBE_SIZE;y++)
+  for(let z=0;z<CUBE_SIZE;z++) {
+    const c = SM7[Math.floor(Math.random()*SM7.length)];
+    gset(x,y,z,{char:c, spin:Math.random()<.5?1:-1, trail:0, bloom:0});
+  }
+}
+
+// Gice (plural of goose)
+let gice = [];
+let honkCount = 0;
+let tick = 0;
+let pathChars = [];
+let msgTimer = 0;
+
+function spawnGice(n=1) {
+  for(let i=0;i<n;i++) {
+    const name = 'GICE_'+Math.floor(Math.random()*9999).toString(16).toUpperCase();
+    const hash = fnv32(name);
+    gice.push({
+      x: Math.random()*CUBE_SIZE,
+      y: Math.random()*CUBE_SIZE,
+      z: Math.random()*CUBE_SIZE,
+      vx:(Math.random()-.5)*.15,
+      vy:(Math.random()-.5)*.15,
+      vz:(Math.random()-.5)*.15,
+      chirality: (hash&1)?1:-1,
+      name, hash,
+      isShadow: Math.random()<.08,
+      chasing: null,
+      honkRecoil: 0,
+      collected: [],
+      age: 0
+    });
+  }
+}
+
+// Project 3D→2D isometric with rotation
+function rotY(x,y,z,a){return{x:x*Math.cos(a)+z*Math.sin(a),y,z:-x*Math.sin(a)+z*Math.cos(a)}}
+function rotX(x,y,z,a){return{x,y:y*Math.cos(a)-z*Math.sin(a),z:y*Math.sin(a)+z*Math.cos(a)}}
+
+function project(wx,wy,wz) {
+  const cx=W()/2, cy=H()/2;
+  const scale = Math.min(W(),H()) / (CUBE_SIZE*2.8);
+  // center
+  let px=wx-CUBE_SIZE/2, py=wy-CUBE_SIZE/2, pz=wz-CUBE_SIZE/2;
+  let r = rotY(px,py,pz,cubeAngleY);
+  r = rotX(r.x,r.y,r.z,cubeAngleX);
+  // perspective
+  const fov = 320;
+  const s = fov/(fov+r.z*scale*0.4);
+  return { sx: cx+r.x*scale*s, sy: cy+r.y*scale*s, depth: r.z, s };
+}
+
+// Color by char rarity
+function charColor(c, bloom=0, trail=0, shadow=false) {
+  if(shadow) return `rgba(80,40,120,${0.4+bloom*0.4})`;
+  const b = Math.min(1, bloom+trail*0.3);
+  if(isRare(c)) return `rgba(${200+Math.floor(b*55)},${180+Math.floor(b*40)},${80+Math.floor(b*80)},${0.7+b*0.3})`;
+  const lc = c.toLowerCase();
+  if('aeiou'.includes(lc)) return `rgba(100,${160+Math.floor(b*60)},${120+Math.floor(b*60)},${0.5+b*0.3})`;
+  return `rgba(${100+Math.floor(b*80)},${130+Math.floor(b*50)},${160+Math.floor(b*60)},${0.35+b*0.35})`;
+}
+
+// Ising-style decay
+function isingStep() {
+  const keys = Object.keys(G);
+  for(let i=0;i<60;i++) {
+    const k = keys[Math.floor(Math.random()*keys.length)];
+    const v = G[k];
+    if(!v) continue;
+    v.trail = Math.max(0, v.trail - 0.04);
+    v.bloom = Math.max(0, v.bloom - 0.02);
+    // neighbor alignment
+    const [x,y,z] = k.split(',').map(Number);
+    const nbrs = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+    let sum = 0, cnt = 0;
+    nbrs.forEach(([dx,dy,dz])=>{ const n=gget(x+dx,y+dy,z+dz); if(n){sum+=n.spin;cnt++;} });
+    if(cnt>0 && Math.random()<0.1) v.spin = sum>0?1:-1;
+  }
+}
+
+// Physics tick for gice
+function physTick() {
+  tick++;
+  isingStep();
+
+  gice.forEach(g => {
+    g.age++;
+    // find nearest rare char voxel
+    const gx=Math.round(g.x), gy=Math.round(g.y), gz=Math.round(g.z);
+    let bestDist=999, bestPos=null;
+    // sample nearby
+    for(let dx=-3;dx<=3;dx++)for(let dy=-3;dy<=3;dy++)for(let dz=-3;dz<=3;dz++){
+      const vx=gx+dx,vy=gy+dy,vz=gz+dz;
+      if(vx<0||vy<0||vz<0||vx>=CUBE_SIZE||vy>=CUBE_SIZE||vz>=CUBE_SIZE) continue;
+      const v=gget(vx,vy,vz);
+      if(v&&isRare(v.char)){
+        const d=Math.sqrt(dx*dx+dy*dy+dz*dz);
+        if(d<bestDist){bestDist=d;bestPos={x:vx,y:vy,z:vz};}
+      }
+    }
+
+    // rule 1: drift toward rare chars
+    if(bestPos && bestDist < 4) {
+      const dx=bestPos.x-g.x, dy=bestPos.y-g.y, dz=bestPos.z-g.z;
+      const dm=Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
+      g.vx += dx/dm*0.008;
+      g.vy += dy/dm*0.008;
+      g.vz += dz/dm*0.008;
+    }
+
+    // rule 2: chirality orbit (toroidal curl)
+    g.vx += g.chirality * g.vy * 0.04;
+    g.vy -= g.chirality * g.vx * 0.04;
+
+    // rule 3: honk recoil fades
+    if(g.honkRecoil > 0) {
+      g.honkRecoil = Math.max(0, g.honkRecoil - 0.05);
+    }
+
+    // rule 4: damping
+    g.vx *= 0.97; g.vy *= 0.97; g.vz *= 0.97;
+
+    // clamp speed
+    const spd = Math.sqrt(g.vx*g.vx+g.vy*g.vy+g.vz*g.vz);
+    if(spd>0.2){g.vx*=0.2/spd;g.vy*=0.2/spd;g.vz*=0.2/spd;}
+
+    // move
+    g.x += g.vx; g.y += g.vy; g.z += g.vz;
+
+    // bounce walls
+    ['x','y','z'].forEach(ax=>{
+      if(g[ax]<0){g[ax]=0;g['v'+ax]*=-0.7;}
+      if(g[ax]>=CUBE_SIZE){g[ax]=CUBE_SIZE-0.01;g['v'+ax]*=-0.7;}
+    });
+
+    // rule 5: trail stamp + collect
+    const vx2=Math.round(g.x),vy2=Math.round(g.y),vz2=Math.round(g.z);
+    const v=gget(vx2,vy2,vz2);
+    if(v){
+      v.trail = Math.min(1,v.trail+0.3);
+      if(isRare(v.char) && !g.collected.includes(v.char)) {
+        g.collected.push(v.char);
+        pathChars = [...new Set([...pathChars,...g.collected])].slice(-12);
+        v.bloom = 1;
+        showMsg(`✦ collected ${v.char}`);
+      }
+    }
+  });
+
+  // update HUD
+  document.getElementById('h-gice').textContent = gice.length;
+  document.getElementById('h-rare').textContent = gice.reduce((a,g)=>a+g.collected.length,0);
+  document.getElementById('h-honk').textContent = honkCount;
+  document.getElementById('h-tick').textContent = tick;
+  document.getElementById('h-path').textContent = pathChars.length ? pathChars.join('') : '—';
+  document.getElementById('spell').textContent = pathChars.length >= 3 ? 'spell: '+pathChars.join('')+'_' : '';
+
+  if(msgTimer>0) { msgTimer--; if(msgTimer===0) document.getElementById('msg').style.opacity=0; }
+}
+
+function showMsg(txt) {
+  const m=document.getElementById('msg');
+  m.textContent=txt; m.style.opacity=1; msgTimer=60;
+}
+
+function honk() {
+  honkCount++;
+  // scatter all gice
+  gice.forEach(g=>{
+    const dx=(Math.random()-.5), dy=(Math.random()-.5), dz=(Math.random()-.5);
+    const dm=Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
+    g.vx+=dx/dm*0.25; g.vy+=dy/dm*0.25; g.vz+=dz/dm*0.25;
+    g.honkRecoil=1;
+  });
+  // bloom nearby voxels
+  gice.forEach(g=>{
+    const vx=Math.round(g.x),vy=Math.round(g.y),vz=Math.round(g.z);
+    for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(let dz=-1;dz<=1;dz++){
+      const v=gget(vx+dx,vy+dy,vz+dz);
+      if(v) v.bloom=Math.min(1,v.bloom+0.6);
+    }
+  });
+  showMsg('HONK');
+}
+
+// Render
+function render() {
+  ctx.clearRect(0,0,W(),H());
+
+  // gather all voxels with projected depth
+  const voxels = [];
+  for(let x=0;x<CUBE_SIZE;x++)
+  for(let y=0;y<CUBE_SIZE;y++)
+  for(let z=0;z<CUBE_SIZE;z++) {
+    const v=gget(x,y,z);
+    if(!v) continue;
+    if(v.trail<0.05 && v.bloom<0.05 && !isRare(v.char) && Math.random()>0.18) continue; // cull quiet voxels
+    const p=project(x,y,z);
+    voxels.push({v,p,x,y,z});
+  }
+  voxels.sort((a,b)=>a.p.depth-b.p.depth);
+
+  const fsize = Math.max(7, Math.min(14, Math.min(W(),H())/55));
+
+  voxels.forEach(({v,p})=>{
+    ctx.font = `${Math.round(fsize*p.s)}px monospace`;
+    ctx.fillStyle = charColor(v.char, v.bloom, v.trail);
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(v.char, p.sx, p.sy);
+  });
+
+  // draw gice
+  gice.forEach(g=>{
+    const p=project(g.x,g.y,g.z);
+    const glyph = g.isShadow ? '◈' : (g.honkRecoil>0.5?'!':'🪿');
+    ctx.font = `${Math.round((g.isShadow?10:13)*p.s)}px monospace`;
+    ctx.fillStyle = g.isShadow ? `rgba(160,80,255,${0.5+g.honkRecoil*0.5})` : `rgba(240,220,120,${0.7+g.honkRecoil*0.3})`;
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(glyph, p.sx, p.sy);
+    // trail ring
+    if(g.collected.length>0) {
+      ctx.beginPath();
+      ctx.arc(p.sx,p.sy,8*p.s,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(200,180,80,${0.2+g.collected.length*0.06})`;
+      ctx.lineWidth=0.8;
+      ctx.stroke();
+    }
+  });
+
+  // cube wireframe overlay
+  drawWireframe();
+}
+
+function drawWireframe() {
+  const corners = [];
+  for(let i=0;i<8;i++) {
+    const x=(i&1)?CUBE_SIZE:0, y=(i&2)?CUBE_SIZE:0, z=(i&4)?CUBE_SIZE:0;
+    corners.push(project(x,y,z));
+  }
+  const edges=[[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]];
+  ctx.strokeStyle='rgba(100,120,80,0.18)';
+  ctx.lineWidth=0.7;
+  edges.forEach(([a,b])=>{
+    ctx.beginPath();
+    ctx.moveTo(corners[a].sx,corners[a].sy);
+    ctx.lineTo(corners[b].sx,corners[b].sy);
+    ctx.stroke();
+  });
+}
+
+// Resize
+function resize() {
+  cv.width=window.innerWidth;
+  cv.height=window.innerHeight;
+}
+window.addEventListener('resize',resize);
+resize();
+
+// Input
+window.addEventListener('keydown',e=>{
+  if(e.code==='Space'){e.preventDefault();honk();}
+  if(e.code==='KeyR'){
+    gice=[]; pathChars=[]; honkCount=0; tick=0;
+    Object.keys(G).forEach(k=>delete G[k]);
+    initGrid(); spawnGice(5);
+    showMsg('reset');
+  }
+});
+
+cv.addEventListener('mousedown',e=>{isDragging=true;lastMX=e.clientX;lastMY=e.clientY;});
+window.addEventListener('mouseup',()=>isDragging=false);
+window.addEventListener('mousemove',e=>{
+  if(!isDragging) return;
+  cubeAngleY += (e.clientX-lastMX)*0.008;
+  cubeAngleX += (e.clientY-lastMY)*0.008;
+  lastMX=e.clientX; lastMY=e.clientY;
+});
+
+cv.addEventListener('click',e=>{
+  if(Math.abs(e.movementX)+Math.abs(e.movementY)>3) return;
+  spawnGice(1);
+  showMsg(`+1 gice (${gice.length} total)`);
+});
+
+// Touch
+cv.addEventListener('touchstart',e=>{isDragging=true;lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;},{passive:true});
+cv.addEventListener('touchend',()=>isDragging=false);
+cv.addEventListener('touchmove',e=>{
+  if(!isDragging) return;
+  cubeAngleY+=(e.touches[0].clientX-lastMX)*0.008;
+  cubeAngleX+=(e.touches[0].clientY-lastMY)*0.008;
+  lastMX=e.touches[0].clientX; lastMY=e.touches[0].clientY;
+},{passive:true});
+
+// Boot
+initGrid();
+spawnGice(5);
+
+function loop() {
+  physTick();
+  render();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>

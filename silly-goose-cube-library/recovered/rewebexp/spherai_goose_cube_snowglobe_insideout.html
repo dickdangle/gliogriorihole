@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Spherai Goose Cube Snowglobe</title>
+    <style>
+        :root {
+            --bg-top: #08111f;
+            --bg-bottom: #03060c;
+            --panel: rgba(10, 18, 31, 0.84);
+            --panel-strong: rgba(13, 23, 40, 0.94);
+            --line: rgba(155, 205, 255, 0.2);
+            --text-main: #edf6ff;
+            --text-soft: #98adcc;
+            --accent: #7ff6df;
+            --accent-two: #9bd4ff;
+            --focus: #ffd68e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: "Trebuchet MS", "Gill Sans", "Franklin Gothic Medium", sans-serif;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(74, 119, 196, 0.18), transparent 30%),
+                radial-gradient(circle at 82% 14%, rgba(55, 198, 161, 0.16), transparent 26%),
+                radial-gradient(circle at 50% 100%, rgba(132, 91, 195, 0.14), transparent 34%),
+                linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+            color: var(--text-main);
+        }
+
+        canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            display: block;
+        }
+
+        #hud {
+            position: fixed;
+            top: 18px;
+            left: 18px;
+            width: min(430px, calc(100vw - 36px));
+            display: grid;
+            gap: 12px;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            padding: 16px 18px;
+            box-shadow: 0 22px 60px rgba(0, 0, 0, 0.36);
+            backdrop-filter: blur(14px);
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 1rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent);
+        }
+
+        p {
+            margin: 0;
+            line-height: 1.5;
+            color: var(--text-soft);
+            font-size: 0.95rem;
+        }
+
+        #statusRow {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .chip {
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 0.78rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-soft);
+            font-family: Consolas, "Courier New", monospace;
+        }
+
+        #controls {
+            position: fixed;
+            left: 18px;
+            right: 18px;
+            bottom: 18px;
+            z-index: 30;
+            display: grid;
+            gap: 12px;
+            padding: 16px 18px;
+            border-radius: 24px;
+            background: var(--panel-strong);
+            border: 1px solid var(--line);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(16px);
+            pointer-events: auto;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+
+        button {
+            border: 1px solid rgba(155, 212, 255, 0.34);
+            background: linear-gradient(180deg, rgba(35, 60, 97, 0.96), rgba(12, 22, 42, 0.96));
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            font: inherit;
+            transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+            pointer-events: auto;
+            touch-action: manipulation;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            border-color: rgba(127, 246, 223, 0.7);
+            background: linear-gradient(180deg, rgba(51, 86, 136, 0.98), rgba(17, 31, 57, 0.98));
+        }
+
+        button.active {
+            background: linear-gradient(180deg, rgba(38, 125, 123, 0.98), rgba(18, 74, 78, 0.98));
+            border-color: rgba(127, 246, 223, 0.9);
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .legend span {
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.76rem;
+            letter-spacing: 0.04em;
+            color: var(--text-soft);
+            font-family: Consolas, "Courier New", monospace;
+        }
+
+        .mono {
+            font-family: Consolas, "Courier New", monospace;
+        }
+
+        @media (max-width: 900px) {
+            #controls {
+                gap: 10px;
+            }
+
+            .row {
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="hud">
+        <div class="panel">
+            <h1>Goose Cube Snowglobe</h1>
+            <p>
+                A tiny voxel biome grown out of goose-cube field logic. Guide the little goose,
+                collect shell sparks, and invert the globe until it turns itself into a sky.
+            </p>
+            <div id="statusRow">
+                <span class="chip" id="chipSparks">sparks 0 / 0</span>
+                <span class="chip" id="chipCycle">bloom 1</span>
+                <span class="chip" id="chipWeather">weather calm</span>
+                <span class="chip" id="chipCamera">camera follow</span>
+            </div>
+        </div>
+        <div class="panel">
+            <p id="messageText">WASD or arrow keys move. Collect shell sparks, then press I to turn the globe inside out.</p>
+        </div>
+    </div>
+
+    <div id="controls">
+        <div class="row">
+            <div class="group">
+                <button id="btnShake">Shake Globe</button>
+                <button id="btnRespawn">Respawn Sparks</button>
+                <button id="btnInside">Inside-Out</button>
+                <button id="btnOrbit">Free Orbit</button>
+                <button id="btnSnow">Snow Bloom</button>
+            </div>
+            <div class="group">
+                <span class="chip mono" id="chipShell">shell mix quiet</span>
+                <span class="chip mono" id="chipScore">found 0</span>
+            </div>
+        </div>
+        <div class="legend" id="legend"></div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from "three";
+        import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+        const DENSITY = ["@", "#", "%", "&", "*", "+", "=", "-", ".", ",", " "];
+        const SHEETS = 26;
+        const GRID_X = 28;
+        const GRID_Z = 28;
+        const CELL = 2.05;
+        const FLOOR_Y = -19;
+        const GLOBE_RADIUS = 39;
+        const WALK_RADIUS = 26;
+        const SPARK_COUNT = 8;
+
+        const SHELL_LAYERS = [
+            { char: "@", name: "Fire", color: 0xd85d3f },
+            { char: "#", name: "Magma", color: 0xf2a141 },
+            { char: "%", name: "Earth", color: 0x91734a },
+            { char: "&", name: "Wood", color: 0x4dbd76 },
+            { char: "*", name: "Water", color: 0x53a6ff },
+            { char: "+", name: "Air", color: 0xa2ecff },
+            { char: "=", name: "Aether", color: 0xbd88ff },
+            { char: ".", name: "Void", color: 0x62758e },
+        ];
+        const SHELL_META = Object.fromEntries(SHELL_LAYERS.map((layer) => [layer.char, layer]));
+
+        const MATERIALS = {
+            core: 0x445369,
+            snow: 0xf1f7ff,
+            frost: 0xbbe4ff,
+            pond: 0x74c8ff,
+            pondDeep: 0x2d6cad,
+            moss: 0x6b8f63,
+            bark: 0x6e5037,
+            ember: 0xc76b45,
+            crystal: 0xb18cff,
+            glass: 0x8fd0ff,
+        };
+
+        const keyState = {};
+        const materialCache = new Map();
+        const buttonPulseTimers = new Map();
+        const clock = new THREE.Clock();
+        const tempVec = new THREE.Vector3();
+        const tempVec2 = new THREE.Vector3();
+
+        let scene;
+        let camera;
+        let renderer;
+        let controls;
+        let worldGroup;
+        let globeGroup;
+        let biomeGroup;
+        let terrainGroup;
+        let sparkGroup;
+        let playerGroup;
+        let snowPoints;
+        let snowVelocities = [];
+        let walkableCells = [];
+        let heightMap = [];
+        let shellMap = [];
+        let sparkItems = [];
+        let starField;
+        let globeShellMesh;
+        let globeRimMesh;
+        let globeBaseGroup;
+        let innerSkyGroup;
+        let innerSkyShell;
+        let worldPearlGroup;
+
+        let bloomTimer = 0;
+        let shakeEnergy = 0;
+        let stormEnergy = 0;
+        let freeOrbit = false;
+        let insideTarget = 0;
+        let insideProgress = 0;
+        let weatherMode = "calm";
+        let shellMix = "quiet";
+        let totalFound = 0;
+        let cycleCount = 1;
+
+        const player = {
+            x: 0,
+            z: 0,
+            y: 0,
+            heading: 0,
+            bob: 0,
+            stride: 0,
+        };
+
+        function setMessage(text) {
+            document.getElementById("messageText").textContent = text;
+        }
+
+        function setCameraChip() {
+            const ease = insideProgress * insideProgress * (3 - 2 * insideProgress);
+            document.getElementById("chipCamera").textContent = `camera ${freeOrbit ? "orbit" : ease > 0.5 ? "inside" : "follow"}`;
+        }
+
+        function pulseButton(id, persistent = false) {
+            const button = document.getElementById(id);
+            if (!button) {
+                return;
+            }
+
+            button.classList.add("active");
+            if (persistent) {
+                return;
+            }
+
+            const existingTimer = buttonPulseTimers.get(id);
+            if (existingTimer) {
+                clearTimeout(existingTimer);
+            }
+
+            const timer = setTimeout(() => {
+                if (id === "btnInside") {
+                    button.classList.toggle("active", insideTarget > 0.5);
+                } else if (id === "btnOrbit") {
+                    button.classList.toggle("active", freeOrbit);
+                } else {
+                    button.classList.remove("active");
+                }
+                buttonPulseTimers.delete(id);
+            }, 220);
+
+            buttonPulseTimers.set(id, timer);
+        }
+
+        function syncButtonStates() {
+            document.getElementById("btnInside").classList.toggle("active", insideTarget > 0.5);
+            document.getElementById("btnOrbit").classList.toggle("active", freeOrbit);
+            setCameraChip();
+        }
+
+        function toggleOrbitMode(forceValue) {
+            freeOrbit = typeof forceValue === "boolean" ? forceValue : !freeOrbit;
+            pulseButton("btnOrbit", true);
+            syncButtonStates();
+            if (freeOrbit) {
+                setMessage("Free orbit enabled. Float outside the toy or around the inversion seam.");
+            } else {
+                setMessage(insideTarget > 0.5 ? "Orbit released. The camera sinks back into the inverted biome." : "Orbit released. The camera settles behind the goose again.");
+            }
+        }
+
+        function seededScalar(z, y, x, seed = 42) {
+            let val =
+                Math.sin(z * 0.137 + seed) * 173.4 +
+                Math.cos(y * 0.093) * 87.2 +
+                Math.sin(x * 0.071) * 51.7 +
+                Math.sin((z * 19 + y * 31 + x * 73) * 0.007);
+            val = val - Math.floor(val);
+            const index = Math.floor(val * DENSITY.length);
+            return DENSITY[Math.min(index, DENSITY.length - 1)];
+        }
+
+        function densityIndex(char) {
+            const index = DENSITY.indexOf(char);
+            return index >= 0 ? index : DENSITY.length - 1;
+        }
+
+        function getMaterial(colorHex, options = {}) {
+            const key = `${colorHex}_${options.transparent ? "t" : "o"}_${options.opacity ?? 1}_${options.emissive ?? 0}`;
+            if (!materialCache.has(key)) {
+                materialCache.set(
+                    key,
+                    new THREE.MeshStandardMaterial({
+                        color: colorHex,
+                        emissive: options.emissive ?? 0,
+                        emissiveIntensity: options.emissive ? 0.4 : 0,
+                        roughness: options.roughness ?? 0.5,
+                        metalness: options.metalness ?? 0.1,
+                        transparent: Boolean(options.transparent),
+                        opacity: options.opacity ?? 1,
+                    }),
+                );
+            }
+            return materialCache.get(key);
+        }
+
+        function gridToWorld(gx, gz) {
+            return {
+                x: (gx - (GRID_X - 1) / 2) * CELL,
+                z: (gz - (GRID_Z - 1) / 2) * CELL,
+            };
+        }
+
+        function worldToGrid(x, z) {
+            return {
+                gx: Math.round(x / CELL + (GRID_X - 1) / 2),
+                gz: Math.round(z / CELL + (GRID_Z - 1) / 2),
+            };
+        }
+
+        function levelToY(level) {
+            return FLOOR_Y + level * CELL;
+        }
+
+        function topSurfaceY(level) {
+            return levelToY(level) + CELL * 0.46;
+        }
+
+        function shellInfoForSheet(sheetIndex) {
+            return SHELL_LAYERS[sheetIndex % SHELL_LAYERS.length];
+        }
+
+        function dominantShell(chars) {
+            const counts = new Map();
+            for (const char of chars) {
+                counts.set(char, (counts.get(char) || 0) + 1);
+            }
+            return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] || ".";
+        }
+
+        function addVoxel(parent, x, y, z, colorHex, scaleY = 1, options = {}) {
+            const geometry = new THREE.BoxGeometry(CELL * 0.94, CELL * 0.94 * scaleY, CELL * 0.94);
+            const mesh = new THREE.Mesh(geometry, getMaterial(colorHex, options));
+            mesh.position.set(x, y, z);
+            parent.add(mesh);
+            return mesh;
+        }
+
+        function buildTree(parent, x, baseY, z, shellChar) {
+            const trunkHeight = shellChar === "&" ? 3 : 2;
+            for (let index = 0; index < trunkHeight; index += 1) {
+                addVoxel(parent, x, baseY + (index + 1) * CELL, z, MATERIALS.bark);
+            }
+
+            const canopyColor = shellChar === "=" ? MATERIALS.crystal : MATERIALS.moss;
+            const snowColor = MATERIALS.snow;
+            const canopyY = baseY + (trunkHeight + 1) * CELL;
+            for (let dx = -1; dx <= 1; dx += 1) {
+                for (let dz = -1; dz <= 1; dz += 1) {
+                    const distance = Math.abs(dx) + Math.abs(dz);
+                    if (distance > 2) {
+                        continue;
+                    }
+                    addVoxel(parent, x + dx * CELL, canopyY, z + dz * CELL, canopyColor);
+                    if (distance <= 1) {
+                        addVoxel(parent, x + dx * CELL, canopyY + CELL, z + dz * CELL, snowColor);
+                    }
+                }
+            }
+
+            addVoxel(parent, x, canopyY + CELL * 2, z, shellChar === "=" ? MATERIALS.crystal : MATERIALS.snow, 0.9, {
+                transparent: shellChar === "=",
+                opacity: shellChar === "=" ? 0.86 : 1,
+                emissive: shellChar === "=" ? MATERIALS.crystal : 0,
+            });
+        }
+
+        function buildCrystal(parent, x, baseY, z, shellChar) {
+            const color = shellChar === "+" ? MATERIALS.frost : MATERIALS.crystal;
+            addVoxel(parent, x, baseY + CELL, z, color, 1.25, {
+                transparent: true,
+                opacity: 0.88,
+                emissive: color,
+                roughness: 0.22,
+                metalness: 0.18,
+            });
+            addVoxel(parent, x + CELL * 0.45, baseY + CELL * 0.75, z, color, 0.85, {
+                transparent: true,
+                opacity: 0.82,
+                emissive: color,
+                roughness: 0.22,
+                metalness: 0.18,
+            });
+            addVoxel(parent, x - CELL * 0.4, baseY + CELL * 0.65, z + CELL * 0.25, color, 0.7, {
+                transparent: true,
+                opacity: 0.8,
+                emissive: color,
+                roughness: 0.22,
+                metalness: 0.18,
+            });
+        }
+
+        function buildBiome() {
+            if (terrainGroup) {
+                biomeGroup.remove(terrainGroup);
+            }
+
+            terrainGroup = new THREE.Group();
+            walkableCells = [];
+            heightMap = Array.from({ length: GRID_X }, () => Array(GRID_Z).fill(null));
+            shellMap = Array.from({ length: GRID_X }, () => Array(GRID_Z).fill("."));
+
+            const shellSamples = [];
+
+            for (let gx = 0; gx < GRID_X; gx += 1) {
+                for (let gz = 0; gz < GRID_Z; gz += 1) {
+                    const { x, z } = gridToWorld(gx, gz);
+                    const radial = Math.sqrt((x / WALK_RADIUS) ** 2 + (z / WALK_RADIUS) ** 2);
+                    if (radial > 1.02) {
+                        continue;
+                    }
+
+                    const shellSheet = Math.max(0, Math.min(SHEETS - 1, Math.floor((1 - Math.min(radial, 1)) * (SHEETS - 1))));
+                    const charA = seededScalar(shellSheet, gx * 6 + 4, gz * 7 + 11);
+                    const charB = seededScalar((shellSheet + 9) % SHEETS, gz * 5 + 3, gx * 4 + 7);
+                    const heightDensity = (DENSITY.length - 1 - densityIndex(charA)) * 0.36;
+                    const shapeDensity = (DENSITY.length - 1 - densityIndex(charB)) * 0.2;
+                    const ridge = Math.sin(gx * 0.55 + shellSheet * 0.12) * 0.7 + Math.cos(gz * 0.48 - shellSheet * 0.08) * 0.65;
+
+                    let height = Math.round(2 + heightDensity + shapeDensity + ridge - radial * 4.6);
+                    height = Math.max(1, Math.min(8, height));
+
+                    const isPond = radial < 0.22 || (radial < 0.34 && charA === "*" && height <= 4);
+                    if (isPond) {
+                        height = 2;
+                    }
+
+                    heightMap[gx][gz] = height;
+                    shellMap[gx][gz] = charA;
+                    shellSamples.push(charA);
+
+                    for (let level = 0; level <= height; level += 1) {
+                        let color = MATERIALS.core;
+                        let options = {};
+                        if (isPond) {
+                            color = level === height ? MATERIALS.pond : level === height - 1 ? MATERIALS.pondDeep : MATERIALS.core;
+                            options = level === height
+                                ? { transparent: true, opacity: 0.88, roughness: 0.2, metalness: 0.08 }
+                                : {};
+                        } else if (level === height) {
+                            if (height >= 5) {
+                                color = MATERIALS.snow;
+                            } else if (charA === "@" || charA === "#") {
+                                color = MATERIALS.ember;
+                            } else if (charA === "&" || charA === "%") {
+                                color = MATERIALS.moss;
+                            } else if (charA === "+" || charA === "=") {
+                                color = MATERIALS.frost;
+                            } else {
+                                color = MATERIALS.snow;
+                            }
+                        } else if (level >= height - 1) {
+                            color = charB === "&" ? 0x627d58 : charB === "#" ? 0x7a5f4a : 0x566375;
+                        }
+
+                        addVoxel(terrainGroup, x, levelToY(level), z, color, 1, options);
+                    }
+
+                    if (!isPond) {
+                        walkableCells.push({
+                            gx,
+                            gz,
+                            x,
+                            z,
+                            y: topSurfaceY(height),
+                            shellChar: charA,
+                            shellSheet,
+                        });
+                    }
+                }
+            }
+
+            shellMix = shellInfoForSheet((DENSITY.length - 1 - densityIndex(dominantShell(shellSamples))) % SHEETS).name.toLowerCase();
+
+            for (const cell of walkableCells) {
+                const radial = Math.sqrt((cell.x / WALK_RADIUS) ** 2 + (cell.z / WALK_RADIUS) ** 2);
+                const featureChar = seededScalar((cell.shellSheet + 13) % SHEETS, cell.gx * 8 + 2, cell.gz * 8 + 5);
+                const featureDensity = DENSITY.length - 1 - densityIndex(featureChar);
+                if (radial > 0.78) {
+                    continue;
+                }
+                if ((featureChar === "&" || featureChar === "%") && featureDensity >= 5 && (cell.gx + cell.gz) % 4 === 0) {
+                    buildTree(terrainGroup, cell.x, cell.y - CELL * 0.46, cell.z, featureChar);
+                } else if ((featureChar === "=" || featureChar === "+") && featureDensity >= 5 && (cell.gx * 3 + cell.gz) % 7 === 0) {
+                    buildCrystal(terrainGroup, cell.x, cell.y - CELL * 0.12, cell.z, featureChar);
+                }
+            }
+
+            const pondRing = new THREE.Mesh(
+                new THREE.TorusGeometry(9.3, 0.26, 10, 70),
+                getMaterial(MATERIALS.frost, { transparent: true, opacity: 0.38, emissive: MATERIALS.frost }),
+            );
+            pondRing.rotation.x = Math.PI / 2;
+            pondRing.position.y = topSurfaceY(2) + 0.12;
+            terrainGroup.add(pondRing);
+            biomeGroup.add(terrainGroup);
+        }
+
+        function buildGlobeShell() {
+            globeShellMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(GLOBE_RADIUS, 48, 32),
+                new THREE.MeshPhysicalMaterial({
+                    color: MATERIALS.glass,
+                    transmission: 0.96,
+                    transparent: true,
+                    opacity: 0.18,
+                    roughness: 0.1,
+                    thickness: 0.9,
+                    clearcoat: 1,
+                    clearcoatRoughness: 0.08,
+                }),
+            );
+            globeShellMesh.position.y = 4;
+            globeGroup.add(globeShellMesh);
+
+            globeRimMesh = new THREE.Mesh(
+                new THREE.TorusGeometry(GLOBE_RADIUS - 0.8, 0.35, 18, 80),
+                getMaterial(0xcfe9ff, { transparent: true, opacity: 0.38, emissive: 0x99ddff }),
+            );
+            globeRimMesh.rotation.x = Math.PI / 2;
+            globeRimMesh.position.y = 4;
+            globeGroup.add(globeRimMesh);
+
+            globeBaseGroup = new THREE.Group();
+            const baseTop = new THREE.Mesh(
+                new THREE.CylinderGeometry(18, 22, 6, 40),
+                getMaterial(0x7d5b39, { roughness: 0.7, metalness: 0.06, transparent: true, opacity: 1 }),
+            );
+            baseTop.position.y = -34;
+            globeBaseGroup.add(baseTop);
+
+            const baseBottom = new THREE.Mesh(
+                new THREE.CylinderGeometry(24, 28, 8, 40),
+                getMaterial(0x5c412b, { roughness: 0.76, metalness: 0.04, transparent: true, opacity: 1 }),
+            );
+            baseBottom.position.y = -40;
+            globeBaseGroup.add(baseBottom);
+            globeGroup.add(globeBaseGroup);
+        }
+
+        function buildInsideSky() {
+            innerSkyGroup = new THREE.Group();
+
+            innerSkyShell = new THREE.Mesh(
+                new THREE.SphereGeometry(72, 48, 36),
+                new THREE.MeshBasicMaterial({
+                    color: 0x193655,
+                    transparent: true,
+                    opacity: 0,
+                    side: THREE.BackSide,
+                }),
+            );
+            innerSkyGroup.add(innerSkyShell);
+
+            const rings = [
+                { radius: 26, tube: 0.18, color: 0x7de9ff, y: 18, x: 0.55, z: 0.18 },
+                { radius: 34, tube: 0.16, color: 0xb591ff, y: 12, x: -0.32, z: 0.24 },
+                { radius: 22, tube: 0.14, color: 0x8effd2, y: 26, x: 0.82, z: -0.2 },
+            ];
+
+            for (const ringInfo of rings) {
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(ringInfo.radius, ringInfo.tube, 8, 80),
+                    new THREE.MeshBasicMaterial({
+                        color: ringInfo.color,
+                        transparent: true,
+                        opacity: 0,
+                    }),
+                );
+                ring.position.y = ringInfo.y;
+                ring.rotation.x = ringInfo.x;
+                ring.rotation.z = ringInfo.z;
+                innerSkyGroup.add(ring);
+            }
+
+            innerSkyGroup.visible = false;
+            worldGroup.add(innerSkyGroup);
+        }
+
+        function buildWorldPearl() {
+            worldPearlGroup = new THREE.Group();
+
+            const pearlShell = new THREE.Mesh(
+                new THREE.SphereGeometry(4.2, 26, 20),
+                new THREE.MeshPhysicalMaterial({
+                    color: 0xaadfff,
+                    transmission: 0.95,
+                    transparent: true,
+                    opacity: 0.2,
+                    roughness: 0.1,
+                    thickness: 0.5,
+                }),
+            );
+            worldPearlGroup.add(pearlShell);
+
+            const pearlRing = new THREE.Mesh(
+                new THREE.TorusGeometry(4.35, 0.08, 10, 50),
+                getMaterial(0xbceeff, { transparent: true, opacity: 0.42, emissive: 0x8adfff }),
+            );
+            pearlRing.rotation.x = Math.PI / 2;
+            worldPearlGroup.add(pearlRing);
+
+            const pearlCore = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.7, 2.3, 1.8, 18),
+                getMaterial(0x6b8f63, { roughness: 0.62, metalness: 0.04 }),
+            );
+            pearlCore.position.y = -1.55;
+            worldPearlGroup.add(pearlCore);
+
+            const pearlPond = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.25, 1.25, 0.18, 18),
+                getMaterial(0x74c8ff, { transparent: true, opacity: 0.82 }),
+            );
+            pearlPond.position.y = -0.56;
+            worldPearlGroup.add(pearlPond);
+
+            const pearlCrystal = new THREE.Mesh(
+                new THREE.OctahedronGeometry(0.72, 0),
+                getMaterial(0xbd88ff, { transparent: true, opacity: 0.88, emissive: 0xbd88ff }),
+            );
+            pearlCrystal.position.y = 0.75;
+            worldPearlGroup.add(pearlCrystal);
+
+            worldPearlGroup.position.set(0, 27, 0);
+            worldPearlGroup.scale.setScalar(0.01);
+            worldPearlGroup.visible = false;
+            worldGroup.add(worldPearlGroup);
+        }
+
+        function buildPlayer() {
+            playerGroup = new THREE.Group();
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.3, 2.4), getMaterial(0xf6fbff));
+            body.position.set(0, 1.3, 0);
+            playerGroup.add(body);
+
+            const neck = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.2, 0.7), getMaterial(0xf6fbff));
+            neck.position.set(0, 2.2, 0.7);
+            playerGroup.add(neck);
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.95, 1.05), getMaterial(0xf6fbff));
+            head.position.set(0, 3.0, 1.05);
+            playerGroup.add(head);
+
+            const beak = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.9), getMaterial(0xf2a141));
+            beak.position.set(0, 2.9, 1.85);
+            playerGroup.add(beak);
+
+            const wingLeft = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.82, 1.22), getMaterial(0xe0edf9));
+            wingLeft.position.set(-1.05, 1.35, 0.0);
+            playerGroup.add(wingLeft);
+
+            const wingRight = wingLeft.clone();
+            wingRight.position.x = 1.05;
+            playerGroup.add(wingRight);
+
+            const footMaterial = getMaterial(0xf2a141);
+            const footLeft = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.72, 0.28), footMaterial);
+            footLeft.position.set(-0.45, 0.4, 0.2);
+            playerGroup.add(footLeft);
+
+            const footRight = footLeft.clone();
+            footRight.position.x = 0.45;
+            playerGroup.add(footRight);
+
+            biomeGroup.add(playerGroup);
+        }
+
+        function resetPlayer() {
+            const spawn = walkableCells.find((cell) => Math.abs(cell.x) < 4 && Math.abs(cell.z) > 7) || walkableCells[0];
+            player.x = spawn?.x ?? 0;
+            player.z = spawn?.z ?? 0;
+            player.y = (spawn?.y ?? 0) + 0.2;
+            player.heading = Math.PI;
+            player.stride = 0;
+            player.bob = 0;
+        }
+
+        function createSpark(cell, index) {
+            const info = shellInfoForSheet((cell.shellSheet + index * 3) % SHEETS);
+            const group = new THREE.Group();
+
+            const core = new THREE.Mesh(
+                new THREE.OctahedronGeometry(0.7, 0),
+                getMaterial(info.color, { emissive: info.color, roughness: 0.16, metalness: 0.24, transparent: true, opacity: 0.92 }),
+            );
+            group.add(core);
+
+            const ring = new THREE.Mesh(
+                new THREE.TorusGeometry(1.05, 0.08, 8, 24),
+                getMaterial(info.color, { emissive: info.color, roughness: 0.22, metalness: 0.12, transparent: true, opacity: 0.75 }),
+            );
+            ring.rotation.x = Math.PI / 2;
+            group.add(ring);
+
+            group.position.set(cell.x, cell.y + 2.0 + Math.random() * 0.7, cell.z);
+            sparkGroup.add(group);
+
+            return {
+                group,
+                cell,
+                baseY: group.position.y,
+                color: info.color,
+                phase: Math.random() * Math.PI * 2,
+            };
+        }
+
+        function rebuildSparks() {
+            if (sparkGroup) {
+                biomeGroup.remove(sparkGroup);
+            }
+            sparkGroup = new THREE.Group();
+            sparkItems = [];
+
+            const available = [...walkableCells].filter((cell) => Math.sqrt(cell.x * cell.x + cell.z * cell.z) < 23);
+            for (let index = available.length - 1; index > 0; index -= 1) {
+                const swap = Math.floor(Math.random() * (index + 1));
+                [available[index], available[swap]] = [available[swap], available[index]];
+            }
+
+            for (let index = 0; index < Math.min(SPARK_COUNT, available.length); index += 1) {
+                sparkItems.push(createSpark(available[index], index));
+            }
+
+            biomeGroup.add(sparkGroup);
+            updateHud();
+        }
+
+        function buildSnow() {
+            const count = 950;
+            const positions = new Float32Array(count * 3);
+            snowVelocities = [];
+
+            for (let index = 0; index < count; index += 1) {
+                const point = randomPointInGlobe(31, 7);
+                positions[index * 3] = point.x;
+                positions[index * 3 + 1] = point.y;
+                positions[index * 3 + 2] = point.z;
+                snowVelocities.push(0.3 + Math.random() * 0.5);
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+            const material = new THREE.PointsMaterial({
+                color: 0xf7fbff,
+                size: 0.32,
+                transparent: true,
+                opacity: 0.86,
+            });
+
+            snowPoints = new THREE.Points(geometry, material);
+            biomeGroup.add(snowPoints);
+        }
+
+        function randomPointInGlobe(radius, yBias = 0) {
+            const point = new THREE.Vector3();
+            do {
+                point.set(
+                    (Math.random() - 0.5) * radius * 2,
+                    (Math.random() - 0.15) * radius * 1.65 + yBias,
+                    (Math.random() - 0.5) * radius * 2,
+                );
+            } while (point.length() > radius);
+            return point;
+        }
+
+        function updateSnow(elapsed, delta) {
+            if (!snowPoints) {
+                return;
+            }
+
+            const positions = snowPoints.geometry.attributes.position.array;
+            for (let index = 0; index < snowVelocities.length; index += 1) {
+                const i3 = index * 3;
+                let x = positions[i3];
+                let y = positions[i3 + 1];
+                let z = positions[i3 + 2];
+
+                const swirl = stormEnergy * 0.9 + shakeEnergy * 0.5;
+                x += Math.sin(elapsed * 0.8 + index * 0.37) * delta * swirl;
+                z += Math.cos(elapsed * 0.75 + index * 0.23) * delta * swirl;
+                y -= snowVelocities[index] * delta * (1 + stormEnergy * 1.6);
+
+                if (Math.sqrt(x * x + z * z) > 31 || y < FLOOR_Y - 1) {
+                    const reset = randomPointInGlobe(30, 15);
+                    x = reset.x;
+                    y = reset.y;
+                    z = reset.z;
+                }
+
+                positions[i3] = x;
+                positions[i3 + 1] = y;
+                positions[i3 + 2] = z;
+            }
+            snowPoints.geometry.attributes.position.needsUpdate = true;
+        }
+
+        function buildStars() {
+            const starGeometry = new THREE.BufferGeometry();
+            const starPositions = [];
+            for (let index = 0; index < 1000; index += 1) {
+                starPositions.push((Math.random() - 0.5) * 450);
+                starPositions.push((Math.random() - 0.5) * 300);
+                starPositions.push((Math.random() - 0.5) * 450);
+            }
+            starGeometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(starPositions), 3));
+            const starMaterial = new THREE.PointsMaterial({ color: 0xdbe8ff, size: 0.42, transparent: true, opacity: 0.85 });
+            starField = new THREE.Points(starGeometry, starMaterial);
+            scene.add(starField);
+        }
+
+        function getGroundAt(x, z) {
+            const { gx, gz } = worldToGrid(x, z);
+            if (gx < 0 || gx >= GRID_X || gz < 0 || gz >= GRID_Z) {
+                return null;
+            }
+
+            const level = heightMap[gx]?.[gz];
+            if (level == null) {
+                return null;
+            }
+            return {
+                y: topSurfaceY(level),
+                char: shellMap[gx][gz],
+                gx,
+                gz,
+            };
+        }
+
+        function updatePlayer(delta) {
+            const moveX = (keyState.KeyD || keyState.ArrowRight ? 1 : 0) - (keyState.KeyA || keyState.ArrowLeft ? 1 : 0);
+            const moveZ = (keyState.KeyS || keyState.ArrowDown ? 1 : 0) - (keyState.KeyW || keyState.ArrowUp ? 1 : 0);
+            const moving = moveX !== 0 || moveZ !== 0;
+
+            if (moving) {
+                const input = tempVec.set(moveX, 0, moveZ).normalize();
+                const speed = 8.4;
+                player.x += input.x * speed * delta;
+                player.z += input.z * speed * delta;
+                player.heading = Math.atan2(input.x, input.z);
+                player.stride += delta * 8;
+            }
+
+            const radial = Math.sqrt(player.x * player.x + player.z * player.z);
+            if (radial > WALK_RADIUS - 1.2) {
+                const scale = (WALK_RADIUS - 1.2) / radial;
+                player.x *= scale;
+                player.z *= scale;
+            }
+
+            let ground = getGroundAt(player.x, player.z);
+            if (!ground) {
+                const fallback = walkableCells.reduce((best, cell) => {
+                    const dist = (cell.x - player.x) ** 2 + (cell.z - player.z) ** 2;
+                    return !best || dist < best.dist ? { cell, dist } : best;
+                }, null);
+                if (fallback) {
+                    player.x = fallback.cell.x;
+                    player.z = fallback.cell.z;
+                    ground = { y: fallback.cell.y, char: fallback.cell.shellChar };
+                }
+            }
+
+            player.y = (ground?.y ?? player.y) + 0.28;
+            player.bob = moving ? Math.sin(player.stride) * 0.18 : 0;
+            shellMix = SHELL_META[ground?.char]?.name?.toLowerCase() ?? shellMix;
+
+            playerGroup.position.set(player.x, player.y + player.bob, player.z);
+            playerGroup.rotation.y = player.heading;
+        }
+
+        function updateSparks(elapsed) {
+            for (let index = sparkItems.length - 1; index >= 0; index -= 1) {
+                const spark = sparkItems[index];
+                spark.group.position.y = spark.baseY + Math.sin(elapsed * 2.2 + spark.phase) * 0.35;
+                spark.group.rotation.y += 0.02;
+                spark.group.rotation.x = Math.sin(elapsed * 1.6 + spark.phase) * 0.2;
+
+                const dx = spark.group.position.x - playerGroup.position.x;
+                const dz = spark.group.position.z - playerGroup.position.z;
+                const dy = spark.group.position.y - playerGroup.position.y;
+                const distanceSq = dx * dx + dy * dy + dz * dz;
+                if (distanceSq < 5.4) {
+                    sparkGroup.remove(spark.group);
+                    sparkItems.splice(index, 1);
+                    totalFound += 1;
+                    shakeEnergy = Math.min(1.2, shakeEnergy + 0.12);
+                    stormEnergy = Math.min(1.1, stormEnergy + 0.08);
+                    setMessage(`Spark caught. ${sparkItems.length} shell sparks still humming in the globe.`);
+                    if (sparkItems.length === 0) {
+                        bloomBiome();
+                    }
+                    updateHud();
+                }
+            }
+        }
+
+        function bloomBiome() {
+            cycleCount += 1;
+            bloomTimer = 2.6;
+            shakeEnergy = 1.4;
+            stormEnergy = 1.3;
+            weatherMode = "bloom";
+            setMessage("Biome awakened. Snow lifts, shells ring, and a fresh drift is on the way.");
+            updateHud();
+            setTimeout(() => {
+                rebuildSparks();
+                setMessage("A new drift has settled. Gather the shell sparks again.");
+            }, 1000);
+        }
+
+        function shakeGlobe(extraStorm = 0.7) {
+            shakeEnergy = Math.max(shakeEnergy, 1.2);
+            stormEnergy = Math.max(stormEnergy, extraStorm);
+            weatherMode = "storm";
+            setMessage("The globe shudders. Snow is loose again.");
+            updateHud();
+        }
+
+        function toggleInsideOut(forceValue) {
+            insideTarget = typeof forceValue === "number" ? forceValue : insideTarget > 0.5 ? 0 : 1;
+            pulseButton("btnInside", true);
+            shakeEnergy = Math.max(shakeEnergy, 0.28);
+            stormEnergy = Math.max(stormEnergy, 0.12);
+            if (insideTarget > 0.5) {
+                setMessage("The seam opens. The globe begins turning itself inside out around you.");
+                freeOrbit = false;
+            } else {
+                setMessage("The shell folds back into a toy. You rise outside the glass again.");
+            }
+            syncButtonStates();
+        }
+
+        function updateInsideOut(elapsed, delta) {
+            const speed = insideTarget > insideProgress ? 1.35 : 1.8;
+            insideProgress += (insideTarget - insideProgress) * Math.min(1, delta * speed * 3.4);
+            if (Math.abs(insideTarget - insideProgress) < 0.001) {
+                insideProgress = insideTarget;
+            }
+
+            const ease = insideProgress * insideProgress * (3 - 2 * insideProgress);
+
+            if (biomeGroup) {
+                const scale = 1 + ease * 1.55;
+                biomeGroup.scale.setScalar(scale);
+                biomeGroup.position.y = ease * 1.2;
+            }
+
+            if (globeShellMesh) {
+                globeShellMesh.material.opacity = 0.18 * (1 - ease * 0.94);
+                globeShellMesh.material.transmission = 0.96 - ease * 0.22;
+            }
+
+            if (globeRimMesh) {
+                globeRimMesh.material.opacity = 0.38 * (1 - ease * 0.82);
+            }
+
+            if (globeBaseGroup) {
+                globeBaseGroup.visible = ease < 0.82;
+                for (const child of globeBaseGroup.children) {
+                    child.material.opacity = Math.max(0.04, 1 - ease * 1.2);
+                }
+            }
+
+            if (innerSkyGroup) {
+                innerSkyGroup.visible = ease > 0.01;
+                innerSkyShell.material.opacity = ease * 0.54;
+                innerSkyGroup.rotation.y = elapsed * 0.03;
+                innerSkyGroup.rotation.x = Math.sin(elapsed * 0.1) * 0.04;
+                for (let index = 1; index < innerSkyGroup.children.length; index += 1) {
+                    const ring = innerSkyGroup.children[index];
+                    ring.material.opacity = ease * (0.08 + index * 0.05);
+                    ring.rotation.y = elapsed * (0.1 + index * 0.03);
+                }
+            }
+
+            if (worldPearlGroup) {
+                worldPearlGroup.visible = ease > 0.04;
+                worldPearlGroup.scale.setScalar(0.01 + ease * 0.99);
+                worldPearlGroup.position.y = 27 + Math.sin(elapsed * 0.7) * 0.7;
+                worldPearlGroup.rotation.y += delta * 0.45;
+                worldPearlGroup.rotation.z = Math.sin(elapsed * 0.5) * 0.08;
+            }
+
+            if (starField?.material) {
+                starField.material.opacity = 0.85 + ease * 0.12;
+            }
+
+            scene.fog.density = 0.0012 - ease * 0.00038;
+        }
+
+        function updateWorldMotion(elapsed, delta) {
+            shakeEnergy = Math.max(0, shakeEnergy - delta * 0.8);
+            stormEnergy = Math.max(0, stormEnergy - delta * 0.16);
+            bloomTimer = Math.max(0, bloomTimer - delta);
+
+            if (bloomTimer <= 0 && stormEnergy < 0.15 && shakeEnergy < 0.12) {
+                weatherMode = "calm";
+            } else if (bloomTimer > 0.01) {
+                weatherMode = "bloom";
+            } else if (stormEnergy > 0.2 || shakeEnergy > 0.2) {
+                weatherMode = "storm";
+            }
+
+            worldGroup.rotation.z = Math.sin(elapsed * 12.5) * shakeEnergy * 0.025;
+            worldGroup.rotation.x = Math.cos(elapsed * 10.4) * shakeEnergy * 0.022;
+            worldGroup.position.x = Math.sin(elapsed * 14.0) * shakeEnergy * 0.3;
+            worldGroup.position.y = Math.cos(elapsed * 11.2) * shakeEnergy * 0.24;
+            worldGroup.position.z = Math.sin(elapsed * 9.8) * shakeEnergy * 0.22;
+
+            if (biomeGroup) {
+                biomeGroup.rotation.y = Math.sin(elapsed * 0.3) * 0.02;
+            }
+        }
+
+        function updateCamera(delta) {
+            const ease = insideProgress * insideProgress * (3 - 2 * insideProgress);
+            setCameraChip();
+            if (freeOrbit) {
+                controls.enabled = true;
+                controls.update();
+                return;
+            }
+
+            controls.enabled = false;
+            const playerWorld = playerGroup.getWorldPosition(new THREE.Vector3());
+            const forward = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading));
+            const right = new THREE.Vector3(Math.sin(player.heading + Math.PI / 2), 0, Math.cos(player.heading + Math.PI / 2));
+
+            const outsidePos = playerWorld.clone().add(new THREE.Vector3(
+                Math.sin(player.heading + Math.PI) * 14,
+                10.5,
+                Math.cos(player.heading + Math.PI) * 14,
+            ));
+
+            const insidePos = playerWorld.clone()
+                .addScaledVector(forward, -4.6)
+                .addScaledVector(right, Math.sin(ease * Math.PI) * 2.8)
+                .add(new THREE.Vector3(0, 3.6, 0));
+
+            const targetPos = outsidePos.lerp(insidePos, ease);
+            camera.position.lerp(targetPos, 1 - Math.exp(-delta * 5.5));
+
+            const outsideLook = playerWorld.clone().add(new THREE.Vector3(0, 3.2, 0));
+            const insideLook = playerWorld.clone()
+                .addScaledVector(forward, 8)
+                .add(new THREE.Vector3(0, 2.7, 0));
+
+            tempVec2.copy(outsideLook).lerp(insideLook, ease);
+            camera.lookAt(tempVec2);
+        }
+
+        function updateHud() {
+            document.getElementById("chipSparks").textContent = `sparks ${SPARK_COUNT - sparkItems.length} / ${SPARK_COUNT}`;
+            document.getElementById("chipCycle").textContent = `bloom ${cycleCount}`;
+            document.getElementById("chipWeather").textContent = `weather ${weatherMode}`;
+            document.getElementById("chipShell").textContent = `shell mix ${shellMix}`;
+            document.getElementById("chipScore").textContent = `found ${totalFound}`;
+        }
+
+        function buildLegend() {
+            const legend = document.getElementById("legend");
+            legend.innerHTML = SHELL_LAYERS.map((layer) => {
+                const color = `#${layer.color.toString(16).padStart(6, "0")}`;
+                return `<span style="color:${color}">${layer.char} ${layer.name}</span>`;
+            }).join("");
+        }
+
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x03070e);
+            scene.fog = new THREE.FogExp2(0x03070e, 0.0012);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 22, 56);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+            renderer.domElement.style.position = "fixed";
+            renderer.domElement.style.inset = "0";
+            renderer.domElement.style.zIndex = "1";
+            renderer.domElement.style.display = "block";
+            document.body.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.target.set(0, 0, 0);
+            controls.enablePan = true;
+            controls.enabled = false;
+
+            scene.add(new THREE.AmbientLight(0x6f80a7, 0.84));
+
+            const keyLight = new THREE.DirectionalLight(0xf5fbff, 1.12);
+            keyLight.position.set(20, 40, 18);
+            scene.add(keyLight);
+
+            const tealLight = new THREE.PointLight(0x63f6e5, 0.45, 220);
+            tealLight.position.set(-24, 12, -22);
+            scene.add(tealLight);
+
+            const violetLight = new THREE.PointLight(0x9a78ff, 0.32, 220);
+            violetLight.position.set(20, -10, -14);
+            scene.add(violetLight);
+
+            worldGroup = new THREE.Group();
+            worldGroup.position.y = 4;
+            scene.add(worldGroup);
+
+            globeGroup = new THREE.Group();
+            biomeGroup = new THREE.Group();
+            worldGroup.add(globeGroup);
+            worldGroup.add(biomeGroup);
+
+            buildGlobeShell();
+            buildInsideSky();
+            buildWorldPearl();
+            buildBiome();
+            buildPlayer();
+            resetPlayer();
+            buildSnow();
+            rebuildSparks();
+            buildStars();
+            updateHud();
+            syncButtonStates();
+        }
+
+        function bindEvents() {
+            window.addEventListener("keydown", (event) => {
+                keyState[event.code] = true;
+                if (event.repeat && ["KeyI", "KeyO", "KeyR", "KeyF", "Space"].includes(event.code)) {
+                    return;
+                }
+                if (event.code === "Space") {
+                    event.preventDefault();
+                    pulseButton("btnShake");
+                    shakeGlobe();
+                } else if (event.code === "KeyR") {
+                    pulseButton("btnRespawn");
+                    rebuildSparks();
+                    setMessage("Fresh sparks dropped into the globe.");
+                } else if (event.code === "KeyI") {
+                    toggleInsideOut();
+                } else if (event.code === "KeyO") {
+                    toggleOrbitMode();
+                } else if (event.code === "KeyF") {
+                    pulseButton("btnSnow");
+                    stormEnergy = Math.max(stormEnergy, 1.15);
+                    weatherMode = "storm";
+                    setMessage("Snow bloom engaged.");
+                }
+            });
+
+            window.addEventListener("keyup", (event) => {
+                keyState[event.code] = false;
+            });
+
+            window.addEventListener("resize", () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            document.getElementById("btnShake").addEventListener("click", () => {
+                pulseButton("btnShake");
+                shakeGlobe();
+            });
+            document.getElementById("btnRespawn").addEventListener("click", () => {
+                pulseButton("btnRespawn");
+                rebuildSparks();
+                setMessage("The biome seeded a new ring of sparks.");
+            });
+            document.getElementById("btnInside").addEventListener("click", () => toggleInsideOut());
+            document.getElementById("btnOrbit").addEventListener("click", () => {
+                toggleOrbitMode();
+            });
+            document.getElementById("btnSnow").addEventListener("click", () => {
+                pulseButton("btnSnow");
+                stormEnergy = Math.max(stormEnergy, 1.2);
+                weatherMode = "storm";
+                setMessage("Snow bloom engaged.");
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsed = clock.getElapsedTime();
+            const delta = Math.min(clock.getDelta(), 0.05);
+
+            updatePlayer(delta);
+            updateSparks(elapsed);
+            updateSnow(elapsed, delta);
+            updateWorldMotion(elapsed, delta);
+            updateInsideOut(elapsed, delta);
+            updateCamera(delta);
+
+            if (starField) {
+                starField.rotation.y = elapsed * 0.01;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        buildLegend();
+        initScene();
+        bindEvents();
+        animate();
+
+        console.log("Spherai Goose Cube Snowglobe ready");
+    </script>
+</body>
+</html>

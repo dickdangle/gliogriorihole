@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Goose Holodeck v0.8.1 — cube of whispers</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #03050b; }
+body { color: #cad2e0; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.4; }
+#app { max-width: 1280px; margin: 0 auto; padding: 12px 14px 18px; display: flex; flex-direction: column; height: 100vh; gap: 10px; }
+canvas#c { display: block; width: 100%; border-radius: 20px; border: 1px solid rgba(90,170,255,0.15); cursor: grab; background: #03050c; flex: 1; min-height: 0; box-shadow: 0 8px 22px rgba(0,0,0,0.5); touch-action: none; }
+canvas#c:active { cursor: grabbing; }
+#companion { background: rgba(12,18,28,0.8); backdrop-filter: blur(3px); border-radius: 28px; padding: 14px 20px; border: 1px solid rgba(70,150,230,0.25); display: flex; align-items: center; gap: 18px; transition: all 0.2s; }
+#companion-orb { width: 48px; height: 48px; flex-shrink: 0; }
+#companion-orb canvas { width: 48px; height: 48px; border-radius: 50%; box-shadow: 0 0 8px rgba(100,180,255,0.4); }
+#companion-text { font-size: 13px; color: #d2e6ff; line-height: 1.65; font-style: normal; flex: 1; letter-spacing: 0.01em; font-weight: 400; text-shadow: 0 0 2px rgba(0,0,0,0.3); }
+#companion-name { font-size: 10px; color: #5f7f9f; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 40px; }
+.distro-panel { background: rgba(8,12,20,0.7); border-radius: 20px; padding: 8px 12px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; border: 1px solid rgba(70,150,255,0.2); }
+.distro-label { font-size: 10px; letter-spacing: 1px; color: #7e9ec9; background: #0a0f1a; padding: 4px 12px; border-radius: 40px; }
+.distro-canvas-wrapper { background: #010208; border-radius: 12px; padding: 4px; box-shadow: inset 0 0 4px #00000040, 0 2px 6px rgba(0,0,0,0.3); }
+canvas#distCanvas { display: block; border-radius: 8px; width: 144px; height: 144px; image-rendering: crisp-edges; image-rendering: pixelated; cursor: crosshair; }
+.distro-stats { font-size: 9px; font-family: monospace; background: #05080f; padding: 4px 8px; border-radius: 16px; color: #88b4e0; }
+#ctrl { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 4px; background: rgba(0,0,0,0.25); padding: 8px 12px; border-radius: 44px; }
+button { padding: 5px 14px; font-family: monospace; font-size: 11px; background: #0a101e; border: 1px solid rgba(90,160,255,0.3); border-radius: 32px; color: #b2caf0; cursor: pointer; transition: 0.15s; font-weight: 500; }
+button:hover { background: #18263c; border-color: #6e9eff; color: #eaf4ff; }
+button.on { background: #1e344c; border-color: #5d9eff; color: white; box-shadow: 0 0 6px rgba(80,150,255,0.3); }
+#honkBtn { border-color: #ffbc5e; color: #ffcf8a; background: #2a1e0e; }
+#honkBtn:hover { background: #523e1a; color: #ffe0a0; }
+input[type="range"] { accent-color: #5f8eff; width: 90px; }
+.api-key-area { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+#apiKeyInput { background: #05080f; border: 1px solid #2d3f5a; border-radius: 32px; padding: 4px 12px; font-size: 10px; width: 160px; color: #ccdeff; font-family: monospace; }
+#apiKeyStatus { font-size: 9px; color: #77aa88; }
+#status { font-size: 9px; color: #3b5980; margin-left: 6px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="c" width="1080" height="580"></canvas>
+  <div id="companion">
+    <div id="companion-orb"><canvas id="orb" width="56" height="56"></canvas></div>
+    <div id="companion-text"><span id="companion-msg">🌙 waiting for the world...</span></div>
+    <span id="companion-name"></span>
+  </div>
+  <div class="distro-panel">
+    <span class="distro-label">📡 GOOSE CUBE DISTRIBUTION</span>
+    <div class="distro-canvas-wrapper"><canvas id="distCanvas" width="128" height="128"></canvas></div>
+    <div class="distro-stats" id="distroStats">rare · density flux</div>
+    <button id="inspectDistroBtn" style="padding:2px 12px">🔍 ask companion</button>
+  </div>
+  <div id="ctrl">
+    <button onclick="mv(0,0,-.07)">Z−</button>
+    <button onclick="mv(0,0,.07)">Z+</button>
+    <button onclick="mv(-.07,0,0)">X−</button>
+    <button onclick="mv(.07,0,0)">X+</button>
+    <button onclick="mv(0,.07,0)">Y+</button>
+    <button onclick="mv(0,-.07,0)">Y−</button>
+    <button id="honkBtn" onclick="honk()">💥 HONK</button>
+    <button id="btn-cube" onclick="tog('cube')">cube</button>
+    <button id="btn-trails" class="on" onclick="tog('trails')">trails</button>
+    <button id="btn-autorot" class="on" onclick="toggleAuto()">spin</button>
+    <button id="btn-ising" onclick="toggleIsing()">ising</button>
+    <span style="color:#6f8fbf;font-size:10px">sheet</span>
+    <input type="range" id="sheetSlider" min="0" max="63" value="0" style="width:70px">
+    <span id="status"></span>
+    <div class="api-key-area">
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-api...">
+      <button id="saveApiKeyBtn">🔑 save</button>
+      <span id="apiKeyStatus"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+const DENSITY = ["@","#","%","&","*","+","=","-",".",","," "];
+const SCOLS = {"@":[220,70,55],"#":[205,115,35],"%":[95,175,55],"&":[55,155,75],"*":[55,125,215],"+":[95,155,235],"=":[155,75,225],"-":[175,115,215],".":[155,155,155],",":[115,115,115]," ":[12,12,22]};
+const SHEETS=64, ROWS=128, COLS=128, SAMPLE=20;
+let overrides={}, sheet=0, ising=false, isingTimer=null;
+let show={cube:false,trails:true}, autorot=true, drag=null;
+let px=0, py=0, pz=0, yaw=0.38, pitch=-0.22, tick=0, honks=0;
+let ripples=[], blooms=[];
+
+// PATCH: cached per-tick supply so buildSupply() runs once per physics tick
+let cachedSupply = null;
+let cachedRarest = null;
+
+const NPC_NAMES=["quillbert","featherstone","waddles","greybeam","flappington","honksworth jr"];
+const NPC_COLS=[[120,200,255],[255,160,100],[160,255,160],[255,120,200],[200,160,255],[255,230,80]];
+let gice=NPC_NAMES.map((name,i)=>({
+  name, col:NPC_COLS[i%NPC_COLS.length],
+  x:(Math.random()-0.5)*0.7, y:(Math.random()-0.5)*0.3, z:(Math.random()-0.5)*0.7,
+  vx:0, vy:0, vz:0, trail:[], honkcd:0, target:null
+}));
+
+const safeN=(v,f=0)=>(isFinite(v)&&!isNaN(v))?v:f;
+const safeSqrt=v=>Math.sqrt(Math.max(0,v));
+const safeDist=(dx,dy,dz)=>safeSqrt(dx*dx+dy*dy+dz*dz);
+const clamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,safeN(v,lo)));
+function seededChar(s,r,c){ let v=Math.sin(s*0.137+42)*173.4+Math.cos(r*0.093)*87.2+Math.sin(c*0.071)*51.7; v=v-Math.floor(v); return DENSITY[Math.min(DENSITY.length-1,Math.floor(v*DENSITY.length))]; }
+function densityOf(ch){ let i=DENSITY.indexOf(ch); return i<0?0.5:1-i/DENSITY.length; }
+
+function buildSupply(){
+  let counts={}; DENSITY.forEach(c=>counts[c]=0);
+  for(let r=0;r<ROWS;r+=4) for(let c=0;c<COLS;c+=4){ let ch=overrides[`${sheet},${r},${c}`]||seededChar(sheet,r,c); counts[ch]=(counts[ch]||0)+1; }
+  return counts;
+}
+// PATCH: use cache when available, refresh explicitly each physics tick
+function getSupply(){ return cachedSupply || buildSupply(); }
+function rarestChar(supply){ let best='@',bc=Infinity; DENSITY.filter(c=>c!==' ').forEach(c=>{ let n=supply[c]||0; if(n<bc){bc=n;best=c;} }); return best; }
+function findRareCluster(ch){
+  let cands=[];
+  for(let r=0;r<ROWS;r+=4) for(let c=0;c<COLS;c+=4) if((overrides[`${sheet},${r},${c}`]||seededChar(sheet,r,c))===ch) cands.push({x:(c/COLS-0.5)*0.9,z:(r/ROWS-0.5)*0.9});
+  if(!cands.length) return null;
+  return cands[Math.floor(Math.random()*Math.min(cands.length,6))];
+}
+function sampleCube(){ let pts=[];
+  for(let zi=0;zi<8;zi++){ let si=Math.floor((zi/8)*SHEETS),ly=-0.42+zi*0.1;
+    for(let r=0;r<SAMPLE;r++) for(let c=0;c<SAMPLE;c++){ let rr=Math.floor((r/SAMPLE)*ROWS),cc=Math.floor((c/SAMPLE)*COLS);
+      let ch=overrides[`${si},${rr},${cc}`]||seededChar(si,rr,cc);
+      if(ch===' ') continue;
+      let d=densityOf(ch); if(d<0.3&&Math.random()>0.3) continue;
+      pts.push({x:(c/SAMPLE-0.5)*0.9,y:ly,z:(r/SAMPLE-0.5)*0.9,ch,d,col:SCOLS[ch]||[150,150,150]});
+    }
+  } return pts;
+}
+
+function rotY(a){ return [Math.cos(a),0,Math.sin(a),0,1,0,-Math.sin(a),0,Math.cos(a)]; }
+function rotX(a){ return [1,0,0,0,Math.cos(a),-Math.sin(a),0,Math.sin(a),Math.cos(a)]; }
+function mulMats(a,b){ let r=new Array(9); for(let i=0;i<3;i++) for(let j=0;j<3;j++){ r[i*3+j]=0; for(let k=0;k<3;k++) r[i*3+j]+=a[i*3+k]*b[k*3+j]; } return r; }
+function mulMat(m,v){ return [m[0]*v[0]+m[1]*v[1]+m[2]*v[2],m[3]*v[0]+m[4]*v[1]+m[5]*v[2],m[6]*v[0]+m[7]*v[1]+m[8]*v[2]]; }
+function proj(x,y,z,W,H){ let mat=mulMats(rotX(pitch),rotY(yaw)); let [rx,ry,rz]=mulMat(mat,[x,y,z]); let d=safeN(rz,0)+3.2; return {px:safeN(W/2+rx*1.9/d*W*0.38,W/2),py:safeN(H/2-ry*1.9/d*H*0.38,H/2),depth:safeN(rz,0),rz:safeN(rz,0)}; }
+
+// PATCH: cache orb canvas refs outside draw loop
+const orbCv = document.getElementById('orb');
+const orbCtx = orbCv.getContext('2d');
+
+let companionBusy=false, orbPhase=0;
+let apiKey=localStorage.getItem('claude_api_key')||'';
+const apiKeyInput=document.getElementById('apiKeyInput');
+const apiKeyStatus=document.getElementById('apiKeyStatus');
+if(apiKey) apiKeyInput.value=apiKey;
+document.getElementById('saveApiKeyBtn').addEventListener('click',()=>{ let key=apiKeyInput.value.trim(); if(key.startsWith('sk-ant')){ localStorage.setItem('claude_api_key',key); apiKey=key; apiKeyStatus.textContent='✓ ready'; } else { apiKeyStatus.textContent='❌ invalid key'; setTimeout(()=>{apiKeyStatus.textContent='';},2000); } });
+
+async function askCompanion(eventType,extra={}){
+  if(companionBusy) return;
+  const key=apiKey;
+  const textSpan=document.getElementById('companion-msg');
+  if(!key){ textSpan.textContent='🔑 please set Anthropic API key above — so i can speak.'; return; }
+  companionBusy=true;
+  textSpan.textContent='✧ ... ✧';
+
+  // PATCH: use cached supply here too
+  const supply=getSupply();
+  const rarest=rarestChar(supply);
+  let giceStatus=gice.map(g=>`${g.name} at (${g.x.toFixed(2)},${g.z.toFixed(2)}) ${g.honkcd>0?'(just honked!)':''}`).join('; ');
+  const rarePos=findRareCluster(rarest);
+  const rareNote=rarePos?`rare "${rarest}" cluster near (${rarePos.x.toFixed(2)},${rarePos.z.toFixed(2)})`:`rare char ${rarest} is scattered.`;
+  const worldState=`sheet ${sheet+1}/64. rarest: "${rarest}" (count:${supply[rarest]||0}). ${rareNote}. geese: ${giceStatus}. total honks: ${honks}. recent event: ${eventType} ${extra.note||''}. user pos: (${px.toFixed(2)},${pz.toFixed(2)}). ising mode: ${ising?'active':'off'}.`;
+  const systemPrompt=`you are ${COMPANION_NAME}. you are the gentle soul inside the goose cube — a shimmering presence that adores geese, rare characters, and quiet honesty. you speak in 1-3 short lowercase sentences, poetic but clear. you notice gice, rare glyphs, and the user's actions. you never break character. no markdown, just soft wonder.`;
+  try{
+    const response=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01"},
+      body:JSON.stringify({model:"claude-3-haiku-20240307",max_tokens:100,system:systemPrompt,messages:[{role:"user",content:`world glimpse: ${worldState}`}]})
+    });
+    const data=await response.json();
+    let reply=data?.content?.[0]?.text||"... whispers fade.";
+    textSpan.textContent='';
+    let i=0;
+    const interval=setInterval(()=>{ if(i<reply.length){ textSpan.textContent+=reply[i++]; } else { clearInterval(interval); companionBusy=false; } },22);
+  } catch(e){
+    textSpan.textContent='✨ the aether is quiet... try again later.';
+    companionBusy=false;
+  }
+}
+
+const COMPANION_NAME="lumasola";
+document.getElementById('companion-name').innerHTML=`⛅ ${COMPANION_NAME}`;
+setInterval(()=>{ if(!companionBusy&&Math.random()<0.35) askCompanion('gentle drift',{note:'watching gice wander'}); },22000);
+
+function physicsTick(){
+  // PATCH: rebuild supply once per physics tick, cache it
+  cachedSupply = buildSupply();
+  cachedRarest = rarestChar(cachedSupply);
+  const supply=cachedSupply, rarest=cachedRarest;
+
+  gice.forEach(g=>{
+    if(tick%40===0||!g.target){ let cl=findRareCluster(rarest); g.target=cl?{x:cl.x,y:g.y,z:cl.z}:null; }
+    if(g.target){ let dx=safeN(g.target.x-g.x),dz=safeN(g.target.z-g.z); let dist=safeDist(dx,0,dz)+0.001; let spd=0.004+Math.random()*0.003; g.vx+=dx/dist*spd; g.vz+=dz/dist*spd; }
+    g.vx+=(Math.random()-0.5)*0.0025; g.vy+=(Math.random()-0.5)*0.0015; g.vz+=(Math.random()-0.5)*0.0025;
+    g.vx*=0.89; g.vy*=0.89; g.vz*=0.89;
+    let spd=safeDist(g.vx,g.vy,g.vz);
+    if(spd>0.018){ g.vx=g.vx/spd*0.018; g.vy=g.vy/spd*0.018; g.vz=g.vz/spd*0.018; }
+    g.x=clamp(g.x+g.vx,-0.47,0.47); g.y=clamp(g.y+g.vy,-0.35,0.35); g.z=clamp(g.z+g.vz,-0.47,0.47);
+    if(show.trails&&tick%4===0){ g.trail.push({x:g.x,y:g.y,z:g.z,age:0}); if(g.trail.length>22) g.trail.shift(); }
+    g.trail.forEach(t=>t.age++);
+    if(tick%14===0){ let rr=clamp(Math.floor((g.z/0.9+0.5)*ROWS),0,ROWS-1),cc=clamp(Math.floor((g.x/0.9+0.5)*COLS),0,COLS-1); overrides[`${sheet},${rr},${cc}`]="-"; updateDistributionMap(); }
+    if(g.honkcd>0) g.honkcd--;
+    let dpx=safeN(g.x-px),dpy=safeN(g.y-py),dpz=safeN(g.z-pz);
+    if(safeDist(dpx,dpy,dpz)<0.2&&g.honkcd===0){ g.honkcd=110; ripples.push({x:g.x,y:g.y,z:g.z,age:0,maxAge:38,col:g.col}); if(!companionBusy) askCompanion('goose honk nearby',{note:`${g.name} greeted you!`}); }
+  });
+
+  if(tick%90===0){
+    // PATCH: single rarestChar call using already-cached supply
+    let cluster=findRareCluster(rarest);
+    if(cluster) blooms.push({x:safeN(cluster.x),y:0,z:safeN(cluster.z),age:0,maxAge:65,col:SCOLS[rarest]||[200,200,200]});
+  }
+  ripples=ripples.filter(r=>r.age<r.maxAge); ripples.forEach(r=>r.age++);
+  blooms=blooms.filter(b=>b.age<b.maxAge); blooms.forEach(b=>b.age++);
+  if(tick%60===0){ let keys=Object.keys(overrides); for(let i=0;i<Math.min(10,keys.length);i++){ let v=overrides[keys[i]]; if(v==="-"||v==="."||v===",") delete overrides[keys[i]]; } updateDistributionMap(); }
+}
+
+const distCanvas=document.getElementById('distCanvas');
+const distCtx=distCanvas.getContext('2d');
+function updateDistributionMap(){
+  const w=128,h=128;
+  distCtx.clearRect(0,0,w,h);
+  // use cached supply if available, else build fresh
+  const supply = cachedSupply || buildSupply();
+  const rareCharCurrent=rarestChar(supply);
+  let stepX=COLS/32,stepY=ROWS/32;
+  for(let i=0;i<32;i++) for(let j=0;j<32;j++){
+    let r=Math.floor(i*stepY),c=Math.floor(j*stepX);
+    let ch=overrides[`${sheet},${r},${c}`]||seededChar(sheet,r,c);
+    let col=SCOLS[ch]||[100,120,150];
+    let brightness=densityOf(ch)*0.8+0.2;
+    let rCol=Math.min(255,col[0]*brightness+30),gCol=Math.min(255,col[1]*brightness+20),bCol=Math.min(255,col[2]*brightness+40);
+    if(ch===rareCharCurrent){rCol=255;gCol=200;bCol=100;}
+    distCtx.fillStyle=`rgb(${rCol},${gCol},${bCol})`;
+    distCtx.fillRect(j*4,i*4,4,4);
+  }
+  document.getElementById('distroStats').innerHTML=`✨ rarest: "${rareCharCurrent}" &nbsp;|&nbsp; sheet ${sheet+1}`;
+}
+
+document.getElementById('sheetSlider').addEventListener('input',e=>{ sheet=parseInt(e.target.value); cachedSupply=null; cachedRarest=null; updateDistributionMap(); });
+document.getElementById('inspectDistroBtn').addEventListener('click',()=>{ askCompanion('user inspected distribution',{note:'focused on rare char and patterns'}); });
+
+function draw(){
+  const cv=document.getElementById('c');
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  let bgGrad=ctx.createLinearGradient(0,0,0,H);
+  bgGrad.addColorStop(0,'#0a1022'); bgGrad.addColorStop(1,'#03050c');
+  ctx.fillStyle=bgGrad; ctx.fillRect(0,0,W,H);
+  for(let i=0;i<180;i++){ let sx=(Math.sin(i*137.5)*W+W)%W,sy=(Math.cos(i*97.3)*H+H)%H; ctx.fillStyle=`rgba(180,210,255,${0.05+Math.sin(i+tick*0.016)*0.04})`; ctx.fillRect(sx,sy,1.2,1.2); }
+  ctx.save(); ctx.globalAlpha=0.045; ctx.strokeStyle='#3c6eff'; ctx.lineWidth=0.6;
+  for(let i=-10;i<=10;i++){ let a=proj(i*0.11,-0.78,-0.9,W,H),b=proj(i*0.11,-0.78,0.9,W,H); ctx.beginPath(); ctx.moveTo(a.px,a.py); ctx.lineTo(b.px,b.py); ctx.stroke(); let d=proj(-0.9,-0.78,i*0.11,W,H),e=proj(0.9,-0.78,i*0.11,W,H); ctx.beginPath(); ctx.moveTo(d.px,d.py); ctx.lineTo(e.px,e.py); ctx.stroke(); }
+  ctx.restore();
+  ctx.save(); ctx.strokeStyle='rgba(80,150,255,0.12)'; ctx.lineWidth=0.8;
+  let cw=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(([x,y,z])=>proj(x*0.46,y*0.46,z*0.46,W,H));
+  [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(e=>{ ctx.beginPath(); ctx.moveTo(cw[e[0]].px,cw[e[0]].py); ctx.lineTo(cw[e[1]].px,cw[e[1]].py); ctx.stroke(); });
+  let sheetY=-0.45+(sheet/63)*0.9;
+  let sheetPts=[[-1,sheetY,-1],[1,sheetY,-1],[1,sheetY,1],[-1,sheetY,1]].map(([x,y,z])=>proj(x*0.46,y,z*0.46,W,H));
+  ctx.strokeStyle='rgba(120,200,255,0.4)'; ctx.setLineDash([4,6]); ctx.beginPath(); sheetPts.forEach((p,i)=>i===0?ctx.moveTo(p.px,p.py):ctx.lineTo(p.px,p.py)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+  ctx.restore();
+  let pts=show.cube?sampleCube().map(p=>({...p,...proj(p.x,p.y,p.z,W,H)})):[];
+  if(show.trails) gice.forEach(g=>{ g.trail.forEach(t=>{ let tp=proj(t.x,t.y,t.z,W,H); if(isFinite(tp.px)){ let fade=clamp(1-t.age/22,0,1); ctx.fillStyle=`rgba(${g.col.join(',')},${fade*0.3})`; ctx.beginPath(); ctx.arc(tp.px,tp.py,Math.max(0.8,2*fade),0,Math.PI*2); ctx.fill(); } }); });
+  gice.forEach(g=>{ let gp=proj(g.x,g.y,g.z,W,H); if(isFinite(gp.px)){ let radG=ctx.createRadialGradient(gp.px,gp.py,0,gp.px,gp.py,12); radG.addColorStop(0,`rgba(${g.col.join(',')},0.9)`); radG.addColorStop(1,`rgba(${g.col.join(',')},0)`); ctx.fillStyle=radG; ctx.beginPath(); ctx.arc(gp.px,gp.py,12,0,Math.PI*2); ctx.fill(); ctx.fillStyle=`rgba(${g.col.join(',')},1)`; ctx.beginPath(); ctx.arc(gp.px,gp.py,3.2,0,Math.PI*2); ctx.fill(); let np=proj(g.x,g.y+0.14,g.z,W,H); if(isFinite(np.px)){ ctx.fillStyle=`rgba(${g.col.join(',')},0.7)`; ctx.font='7px monospace'; ctx.textAlign='center'; ctx.fillText(g.name,np.px,np.py); } } });
+  let plrPos=proj(px,py,pz,W,H); if(isFinite(plrPos.px)){ let glow=ctx.createRadialGradient(plrPos.px,plrPos.py,0,plrPos.px,plrPos.py,22); glow.addColorStop(0,'rgba(245,215,110,0.8)'); glow.addColorStop(1,'rgba(245,215,110,0)'); ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(plrPos.px,plrPos.py,22,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#ffecb3'; ctx.beginPath(); ctx.arc(plrPos.px,plrPos.py,4.5,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#ffdd99'; ctx.font='8px monospace'; ctx.fillText('you',plrPos.px,plrPos.py-12); }
+  pts.sort((a,b)=>a.depth-b.depth).forEach(p=>{ if(isFinite(p.px)){ let sz=Math.max(1.2,(1.5+p.d*2.2)/(p.rz+3.2)*W*0.012); ctx.fillStyle=`rgba(${p.col[0]},${p.col[1]},${p.col[2]},${clamp(0.35+p.d*0.5,0,0.9)})`; ctx.fillRect(p.px-sz/2,p.py-sz/2,sz,sz); } });
+  ripples.forEach(r=>{ let t=r.age/r.maxAge,rad=t*0.55; ctx.save(); ctx.globalAlpha=clamp((1-t)*0.6,0,0.9); ctx.strokeStyle=`rgba(${(r.col||[245,215,110]).join(',')},${1-t})`; ctx.lineWidth=1.3-t; ctx.beginPath(); for(let i=0;i<=28;i++){ let ang=(i/28)*Math.PI*2; let pp=proj(r.x+Math.cos(ang)*rad,r.y,r.z+Math.sin(ang)*rad,W,H); if(isFinite(pp.px)) i===0?ctx.moveTo(pp.px,pp.py):ctx.lineTo(pp.px,pp.py); } ctx.stroke(); ctx.restore(); });
+  blooms.forEach(bl=>{ let t=bl.age/bl.maxAge,pulse=Math.sin(t*Math.PI); if(pulse<0.02) return; ctx.save(); ctx.globalAlpha=pulse*0.6; ctx.strokeStyle=`rgba(${bl.col.join(',')},0.9)`; ctx.lineWidth=1.6-t; ctx.beginPath(); for(let i=0;i<=28;i++){ let ang=(i/28)*Math.PI*2; let pp=proj(bl.x+Math.cos(ang)*(0.06+t*0.32),bl.y,bl.z+Math.sin(ang)*(0.06+t*0.32),W,H); if(isFinite(pp.px)) i===0?ctx.moveTo(pp.px,pp.py):ctx.lineTo(pp.px,pp.py); } ctx.stroke(); ctx.restore(); });
+
+  // PATCH: use cached supply/rarest in draw — no extra buildSupply call
+  const supply = cachedSupply || buildSupply();
+  const rareNow = cachedRarest || rarestChar(supply);
+  const rareCol=SCOLS[rareNow]||[200,200,200];
+  ctx.fillStyle=`rgba(${rareCol.join(',')},0.7)`; ctx.font='bold 9px monospace'; ctx.fillText(`⛅ ${rareNow} · sheet ${sheet+1} · honk ${honks}`,12,H-12);
+
+  // PATCH: orb uses cached canvas refs
+  let speakingFlag=companionBusy; orbPhase+=speakingFlag?0.07:0.02;
+  let pulseOrb=0.7+Math.sin(orbPhase)*0.3;
+  orbCtx.clearRect(0,0,56,56);
+  let grad=orbCtx.createRadialGradient(28,28,0,28,28,28*pulseOrb);
+  grad.addColorStop(0,`rgba(140,200,255,${speakingFlag?0.9:0.55})`);
+  grad.addColorStop(1,'rgba(40,80,160,0)');
+  orbCtx.fillStyle=grad; orbCtx.beginPath(); orbCtx.arc(28,28,28,0,Math.PI*2); orbCtx.fill();
+  if(speakingFlag) for(let i=0;i<3;i++){ let r=9+i*6+Math.sin(orbPhase+i)*0.7; orbCtx.strokeStyle=`rgba(140,200,255,${0.3-i*0.06})`; orbCtx.beginPath(); orbCtx.arc(28,28,r,0,Math.PI*2); orbCtx.stroke(); }
+  document.getElementById('status').textContent=`${autorot?'spinning':'still'} · ${ising?'ising':'static'}`;
+}
+
+function toggleAuto(){ autorot=!autorot; document.getElementById('btn-autorot').classList.toggle('on',autorot); }
+function tog(k){ show[k]=!show[k]; document.getElementById('btn-'+k).classList.toggle('on',show[k]); }
+function mv(dx,dy,dz){ px=clamp(px+dx,-0.46,0.46); py=clamp(py+dy,-0.46,0.46); pz=clamp(pz+dz,-0.46,0.46); }
+function honk(){ honks++; let scatter=0; gice.forEach(g=>{ let dx=g.x-px,dy=g.y-py,dz=g.z-pz; let dist=safeDist(dx,dy,dz)+0.001; if(dist<0.55){ let f=(0.55-dist)/0.55*0.07; g.vx+=dx/dist*f; g.vz+=dz/dist*f; scatter++; g.target=null; } }); for(let i=0;i<4;i++) ripples.push({x:px,y:py-0.04,z:pz,age:i*8,maxAge:52+i*10,col:[245,215,110]}); askCompanion('player honked',{note:scatter>0?`scattered ${scatter} gice`:'echo'}); }
+function toggleIsing(){ ising=!ising; document.getElementById('btn-ising').classList.toggle('on',ising); if(ising){ isingTimer=setInterval(()=>{ let next={...overrides}; for(let i=0;i<70;i++){ let rr=Math.floor(Math.random()*ROWS),cc=Math.floor(Math.random()*COLS),key=`${sheet},${rr},${cc}`,ch=next[key]||seededChar(sheet,rr,cc),di=DENSITY.indexOf(ch); if(di<0)continue; let ni=clamp(di+(Math.random()<0.5?1:-1),0,DENSITY.length-2); if(DENSITY[ni]!==' ') next[key]=DENSITY[ni]; else delete next[key]; } overrides=next; cachedSupply=null; cachedRarest=null; updateDistributionMap(); },320); } else clearInterval(isingTimer); }
+
+// PATCH: mouse drag — no autorot toggle side-effect, just pause while dragging
+const canvasElem=document.getElementById('c');
+canvasElem.addEventListener('mousedown',e=>{ drag={x:e.clientX,y:e.clientY,yaw,pitch,wasAuto:autorot}; autorot=false; document.getElementById('btn-autorot').classList.remove('on'); });
+canvasElem.addEventListener('mousemove',e=>{ if(drag){ yaw=drag.yaw+(e.clientX-drag.x)*0.007; pitch=clamp(drag.pitch+(e.clientY-drag.y)*0.007,-0.9,0.7); } });
+canvasElem.addEventListener('mouseup',()=>{ if(drag&&drag.wasAuto){ autorot=true; document.getElementById('btn-autorot').classList.add('on'); } drag=null; });
+
+// PATCH: touch support for drag rotation
+canvasElem.addEventListener('touchstart',e=>{ e.preventDefault(); let t=e.touches[0]; drag={x:t.clientX,y:t.clientY,yaw,pitch,wasAuto:autorot}; autorot=false; document.getElementById('btn-autorot').classList.remove('on'); },{passive:false});
+canvasElem.addEventListener('touchmove',e=>{ e.preventDefault(); if(drag){ let t=e.touches[0]; yaw=drag.yaw+(t.clientX-drag.x)*0.007; pitch=clamp(drag.pitch+(t.clientY-drag.y)*0.007,-0.9,0.7); } },{passive:false});
+canvasElem.addEventListener('touchend',e=>{ e.preventDefault(); if(drag&&drag.wasAuto){ autorot=true; document.getElementById('btn-autorot').classList.add('on'); } drag=null; },{passive:false});
+
+window.addEventListener('keydown',e=>{ if(e.key==='ArrowLeft') mv(0,0,-0.07); if(e.key==='ArrowRight') mv(0,0,0.07); if(e.key==='ArrowUp') mv(-0.07,0,0); if(e.key==='ArrowDown') mv(0.07,0,0); if(e.key==='h'||e.key===' '){ e.preventDefault(); honk(); } });
+
+function loop(){ try{ tick++; if(autorot&&!drag) yaw+=0.003; if(tick%2===0) physicsTick(); draw(); }catch(e){} requestAnimationFrame(loop); }
+updateDistributionMap();
+setTimeout(()=>{ askCompanion('waking up inside the goose cube',{}); },700);
+loop();
+</script>
+</body>
+</html>

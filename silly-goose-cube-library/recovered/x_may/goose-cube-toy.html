@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Goose Cube Toy</title>
+  <style>
+    :root {
+      --bg: #0a0d13;
+      --panel: #141927;
+      --panel-2: #10141f;
+      --line: rgba(255, 209, 102, 0.2);
+      --gold: #ffd166;
+      --ink: #e7e9f4;
+      --muted: #95a0c7;
+      --pond: #88c7ff;
+      --garden: #9fd37a;
+      --accent: #f28f3b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top, rgba(255, 209, 102, 0.08), transparent 32%),
+        linear-gradient(180deg, #121726 0%, var(--bg) 55%);
+      color: var(--ink);
+      font-family: "Courier New", monospace;
+      padding: 18px;
+    }
+
+    .app {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(27, 33, 49, 0.95), rgba(15, 18, 29, 0.98));
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
+      padding: 14px 16px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .eyebrow {
+      color: var(--gold);
+      letter-spacing: 0.18em;
+      font-size: 11px;
+      margin: 0 0 6px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+    }
+
+    .subcopy {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 64ch;
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button,
+    input[type="range"] {
+      font: inherit;
+    }
+
+    button {
+      background: #232c43;
+      color: var(--ink);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 999px;
+      padding: 9px 14px;
+      cursor: pointer;
+      transition: transform 0.1s ease, background 0.15s ease;
+    }
+
+    button:hover {
+      background: #2b3653;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    .primary {
+      background: linear-gradient(180deg, #f6b44e, #d57f2c);
+      color: #1f180d;
+      font-weight: bold;
+    }
+
+    .secondary {
+      background: #21405c;
+      color: #d8f0ff;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .view-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .view-btn {
+      background: #1d2333;
+      color: var(--muted);
+      border-color: rgba(255, 255, 255, 0.05);
+      padding: 8px 12px;
+      font-size: 0.9rem;
+    }
+
+    .view-btn.active {
+      background: linear-gradient(180deg, rgba(242, 143, 59, 0.24), rgba(242, 143, 59, 0.16));
+      color: #fff0d4;
+      border-color: rgba(255, 209, 102, 0.28);
+    }
+
+    .sheet-nav {
+      display: grid;
+      gap: 10px;
+    }
+
+    .slice-head,
+    .mini-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .slice-box {
+      background: #090c14;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 14px;
+      padding: 12px;
+      overflow: auto;
+      min-height: 370px;
+    }
+
+    pre {
+      margin: 0;
+      color: #d6e2ff;
+      font-size: 14px;
+      line-height: 1.08;
+      letter-spacing: 0.03em;
+      min-width: fit-content;
+    }
+
+    canvas {
+      width: 100%;
+      display: block;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background:
+        radial-gradient(circle at 50% 26%, rgba(255, 255, 255, 0.12), transparent 20%),
+        radial-gradient(circle at 50% 52%, rgba(120, 188, 255, 0.10), transparent 38%),
+        linear-gradient(180deg, #0d1320 0%, #090c14 100%);
+    }
+
+    .sheet-controls {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .sheet-readout {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      flex-wrap: wrap;
+    }
+
+    .sheet-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .sheet-pill {
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      background: #1d2333;
+      color: #8f9ac0;
+      border: 1px solid transparent;
+    }
+
+    .sheet-pill.center {
+      color: #ffdd9e;
+      border-color: rgba(255, 209, 102, 0.28);
+      background: #453117;
+    }
+
+    .sheet-pill.active {
+      color: white;
+      background: var(--accent);
+    }
+
+    .play-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .egg-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .seed-list,
+    .garden-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .seed {
+      background: #161c29;
+      border: 1px solid rgba(255, 209, 102, 0.16);
+      border-radius: 12px;
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .seed button {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .garden-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .plot {
+      min-height: 88px;
+      background: linear-gradient(180deg, rgba(25, 35, 19, 0.95), rgba(16, 24, 13, 0.98));
+      border: 1px solid rgba(159, 211, 122, 0.18);
+      border-radius: 12px;
+      padding: 10px;
+      color: #d7f0bf;
+    }
+
+    .plot.empty {
+      color: #768864;
+    }
+
+    .pond {
+      background: linear-gradient(180deg, rgba(20, 35, 53, 0.96), rgba(14, 25, 39, 0.98));
+      border: 1px solid rgba(136, 199, 255, 0.2);
+      border-radius: 12px;
+      padding: 12px;
+      color: #d9f2ff;
+      min-height: 180px;
+    }
+
+    .pond-ripple {
+      font-size: 1.3rem;
+      color: var(--pond);
+      margin: 14px 0 10px;
+    }
+
+    .label {
+      color: var(--gold);
+      letter-spacing: 0.16em;
+      font-size: 11px;
+      margin: 0 0 6px;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .view-panel {
+      display: none;
+    }
+
+    .view-panel.active {
+      display: block;
+    }
+
+    .view-panel.stack.active,
+    .view-panel.egg-grid.active {
+      display: grid;
+    }
+
+    @media (max-width: 980px) {
+      .workspace,
+      .egg-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel topbar">
+      <div>
+        <p class="eyebrow">SPHERAI × RNW · GOOSE CUBE TOY</p>
+        <h1>Goose Cube In A Goose Egg</h1>
+        <p class="subcopy">
+          A tiny direct-open toy: 64 sheets of goose depth, wrapped in an egg, stirred by a honk engine.
+          Honks shake loose seeds. Seeds get planted in the silly goose garden. Pond toodles ripple the density quids.
+        </p>
+      </div>
+      <div class="controls">
+        <button class="primary" id="honkBtn" type="button">Honk</button>
+        <button class="secondary" id="toodleBtn" type="button">Toodle Pond</button>
+        <button id="plantBtn" type="button">Plant Random Seed</button>
+        <button id="newGooseBtn" type="button">New Goose</button>
+      </div>
+    </section>
+
+    <section class="panel view-tabs">
+      <button class="view-btn active" type="button" data-view="sheet">2D Sheet</button>
+      <button class="view-btn" type="button" data-view="globe">Snowglobe</button>
+      <button class="view-btn" type="button" data-view="thread">Thread</button>
+      <button class="view-btn" type="button" data-view="world">World</button>
+    </section>
+
+    <section class="workspace">
+      <section class="panel view-panel active" id="sheetView">
+        <div class="slice-head">
+          <div>
+            <p class="label">ACTIVE SLICE</p>
+            <div class="meta" id="sliceMeta">Sheet 32 of 64 · center arc</div>
+          </div>
+          <div class="meta" id="statsMeta">honks 0 · seeds 0 · garden 0</div>
+        </div>
+        <div class="slice-box">
+          <pre id="sliceView"></pre>
+        </div>
+        <div class="sheet-controls">
+          <div class="sheet-readout">
+            <span id="sheetReadout">center arc: S31-S33</span>
+            <span id="quidReadout">quid mix: quiet</span>
+          </div>
+          <input id="sheetSlider" type="range" min="0" max="63" value="31">
+          <div class="play-row">
+            <button id="prevSheetBtn" type="button">Prev Sheet</button>
+            <button id="playBtn" type="button">Play</button>
+            <button id="nextSheetBtn" type="button">Next Sheet</button>
+            <span class="meta" id="pondMeta">pond still · recursion 1</span>
+          </div>
+          <div class="sheet-strip" id="sheetStrip"></div>
+        </div>
+      </section>
+
+      <section class="panel stack view-panel" id="globeView">
+        <div class="mini-head">
+          <div>
+            <p class="label">GOOSE CUBE VISUALIZER</p>
+            <div class="meta">The egg contains the cube. The toroids interpenetrate the ising density.</div>
+          </div>
+        </div>
+        <canvas id="cubeCanvas" width="360" height="300"></canvas>
+        <p class="note" id="cubeNote">
+          The center arc lives on sheets 31–33. Toward both ends the goose thins into a print-stack silhouette.
+        </p>
+      </section>
+
+      <section class="panel stack view-panel" id="threadView">
+        <div class="mini-head">
+          <div>
+            <p class="label">GOOSE THREAD</p>
+            <div class="meta">Read the cube as one long sheet-thread instead of a volume.</div>
+          </div>
+        </div>
+        <canvas id="threadCanvas" width="760" height="220"></canvas>
+        <p class="note" id="threadNote">
+          The goose becomes a thread when depth is read as sequence instead of volume.
+        </p>
+      </section>
+    </section>
+
+    <section class="panel egg-grid view-panel" id="worldView">
+      <section class="stack">
+        <div>
+          <p class="label">SEED JAR</p>
+          <p class="note">Honks compress the egged cube into seed packets. Plant them and let the garden recurse.</p>
+        </div>
+        <div class="seed-list" id="seedList"></div>
+      </section>
+
+      <section class="stack">
+        <div>
+          <p class="label">SILLY GOOSE GARDEN</p>
+          <p class="note">Seeds advance from seed to sprout to bud to egg as you honk and toodle.</p>
+        </div>
+        <div class="garden-grid" id="gardenGrid"></div>
+      </section>
+
+      <section class="stack">
+        <div class="pond">
+          <p class="label">POND</p>
+          <p class="note">Toodling the pond stirs the local quids and nudges the toy through perturbation space.</p>
+          <div class="pond-ripple" id="pondRipple">' O ,</div>
+          <div class="meta" id="pondStateText">State: still</div>
+          <div class="meta" id="eggStateText">Egg: warm and waiting</div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const SHEETS = 64;
+    const ROWS = 21;
+    const COLS = 29;
+    const DENSITY = ["@", "#", "%", "&", "*", "+", "=", "-", ".", ",", " "];
+    const CENTER_ARC = [30, 31, 32];
+    const CENTER_Z = 31;
+    const GOOSE_TEMPLATE = [
+      "     .--.      ",
+      "  .-(O  )-.    ",
+      " (___   ___)   ",
+      "    /  /       ",
+      "   /__/        "
+    ];
+
+    const state = {
+      view: "sheet",
+      cur: CENTER_Z,
+      honks: 0,
+      toodles: 0,
+      recursion: 1,
+      pond: "still",
+      playing: false,
+      playHandle: null,
+      cube: null,
+      garden: Array.from({ length: 6 }, () => null),
+      seeds: []
+    };
+
+    const els = {
+      sliceView: document.getElementById("sliceView"),
+      sliceMeta: document.getElementById("sliceMeta"),
+      statsMeta: document.getElementById("statsMeta"),
+      sheetReadout: document.getElementById("sheetReadout"),
+      quidReadout: document.getElementById("quidReadout"),
+      pondMeta: document.getElementById("pondMeta"),
+      pondRipple: document.getElementById("pondRipple"),
+      pondStateText: document.getElementById("pondStateText"),
+      eggStateText: document.getElementById("eggStateText"),
+      seedList: document.getElementById("seedList"),
+      gardenGrid: document.getElementById("gardenGrid"),
+      cubeCanvas: document.getElementById("cubeCanvas"),
+      cubeNote: document.getElementById("cubeNote"),
+      threadCanvas: document.getElementById("threadCanvas"),
+      threadNote: document.getElementById("threadNote"),
+      sheetSlider: document.getElementById("sheetSlider"),
+      sheetStrip: document.getElementById("sheetStrip"),
+      playBtn: document.getElementById("playBtn"),
+      viewButtons: Array.from(document.querySelectorAll("[data-view]")),
+      viewPanels: {
+        sheet: document.getElementById("sheetView"),
+        globe: document.getElementById("globeView"),
+        thread: document.getElementById("threadView"),
+        world: document.getElementById("worldView")
+      }
+    };
+
+    function simpleHash(text) {
+      let h = 2166136261;
+      for (let i = 0; i < text.length; i++) {
+        h ^= text.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    }
+
+    function seededScalar(z, y, x, seed = 42) {
+      let val =
+        Math.sin(z * 0.117 + seed) * 173.4 +
+        Math.cos(y * 0.191) * 97.2 +
+        Math.sin(x * 0.151) * 51.7 +
+        Math.sin((z * 19 + y * 31 + x * 73) * 0.011);
+      val = val - Math.floor(val);
+      const idx = Math.floor(val * DENSITY.length);
+      return DENSITY[Math.min(idx, DENSITY.length - 1)];
+    }
+
+    function patternWidth(pattern) {
+      return pattern.reduce((max, row) => Math.max(max, row.length), 0);
+    }
+
+    function scalePattern(pattern, scaleX, scaleY) {
+      const srcH = pattern.length;
+      const srcW = patternWidth(pattern);
+      const outH = Math.max(2, Math.round(srcH * scaleY));
+      const outW = Math.max(3, Math.round(srcW * scaleX));
+      const canvas = Array.from({ length: outH }, () => new Array(outW).fill(" "));
+
+      pattern.forEach((row, y) => {
+        [...row].forEach((ch, x) => {
+          if (ch === " ") return;
+          const ny = srcH === 1 ? 0 : Math.round((y / (srcH - 1)) * (outH - 1));
+          const nx = srcW === 1 ? 0 : Math.round((x / (srcW - 1)) * (outW - 1));
+          canvas[ny][nx] = ch;
+        });
+      });
+
+      return canvas.map(row => row.join(""));
+    }
+
+    function stampPattern(sheet, pattern, sr, sc, z, voxels) {
+      pattern.forEach((row, dr) => {
+        [...row].forEach((ch, dc) => {
+          const rr = sr + dr;
+          const cc = sc + dc;
+          if (ch === " ") return;
+          if (rr < 0 || rr >= ROWS || cc < 0 || cc >= COLS) return;
+          sheet[rr][cc] = ch;
+          if (voxels) voxels.push({ z, y: rr, x: cc, ch });
+        });
+      });
+    }
+
+    function gooseSliceForSheet(z) {
+      const maxDist = Math.max(CENTER_Z, SHEETS - 1 - CENTER_Z);
+      const dist = Math.abs(z - CENTER_Z);
+      const norm = dist / maxDist;
+      const scaleX = Math.max(0.25, 1 - norm * 0.72);
+      const scaleY = Math.max(0.34, 1 - norm * 0.58);
+      return scalePattern(GOOSE_TEMPLATE, scaleX, scaleY);
+    }
+
+    function buildCube(seed = 42) {
+      const sheets = Array.from({ length: SHEETS }, (_, z) =>
+        Array.from({ length: ROWS }, (_, y) =>
+          Array.from({ length: COLS }, (_, x) => seededScalar(z, y, x, seed))
+        )
+      );
+      const voxels = [];
+      const anchorRow = Math.floor(ROWS / 2);
+      const anchorCol = Math.floor(COLS / 2);
+      const maxDist = Math.max(CENTER_Z, SHEETS - 1 - CENTER_Z);
+
+      for (let z = 0; z < SHEETS; z++) {
+        const dist = Math.abs(z - CENTER_Z);
+        const norm = dist / maxDist;
+        const slice = gooseSliceForSheet(z);
+        const sliceH = slice.length;
+        const sliceW = patternWidth(slice);
+        const lift = Math.round((1 - norm) * 3);
+        const drift = Math.round((z - CENTER_Z) * 0.06);
+        const sr = anchorRow - Math.floor(sliceH / 2) - lift;
+        const sc = anchorCol - Math.floor(sliceW / 2) + drift;
+        stampPattern(sheets[z], slice, sr, sc, z, voxels);
+      }
+
+      return {
+        seed,
+        sheets,
+        voxels,
+        bounds: voxels.reduce((acc, voxel) => ({
+          minX: Math.min(acc.minX, voxel.x),
+          maxX: Math.max(acc.maxX, voxel.x),
+          minY: Math.min(acc.minY, voxel.y),
+          maxY: Math.max(acc.maxY, voxel.y),
+          minZ: Math.min(acc.minZ, voxel.z),
+          maxZ: Math.max(acc.maxZ, voxel.z)
+        }), {
+          minX: Infinity, maxX: -Infinity,
+          minY: Infinity, maxY: -Infinity,
+          minZ: Infinity, maxZ: -Infinity
+        })
+      };
+    }
+
+    function stirDensity(radius = 4, intensity = 12) {
+      const midY = Math.floor(ROWS / 2);
+      const midX = Math.floor(COLS / 2);
+
+      for (let dz = -1; dz <= 1; dz++) {
+        const z = (state.cur + dz + SHEETS) % SHEETS;
+        for (let i = 0; i < intensity; i++) {
+          const y = Math.max(0, Math.min(ROWS - 1, midY + Math.floor((Math.random() - 0.5) * radius * 2.4)));
+          const x = Math.max(0, Math.min(COLS - 1, midX + Math.floor((Math.random() - 0.5) * radius * 2.8)));
+          const densityIndex = (state.honks + state.toodles + i + z) % (DENSITY.length - 1);
+          if (state.cube.sheets[z][y][x] === "O" || state.cube.sheets[z][y][x] === "/" || state.cube.sheets[z][y][x] === "(") {
+            continue;
+          }
+          state.cube.sheets[z][y][x] = DENSITY[densityIndex];
+        }
+      }
+    }
+
+    function deriveSeeds() {
+      const signature = state.cube.voxels
+        .slice(0, 96)
+        .map(v => `${v.z}:${v.y}:${v.x}:${v.ch}`)
+        .join("|");
+      const base = simpleHash(`${signature}:${state.honks}:${state.toodles}:${state.recursion}:${state.cube.seed}`);
+      const labels = ["POND", "GARDEN", "EGG", "ARC", "HONK", "NEST", "CUBE"];
+      const glyphs = ["O", "0", "G", "@", "%", "*", "+"];
+
+      state.seeds = Array.from({ length: 4 }, (_, i) => {
+        const raw = (base + i * 2654435761) >>> 0;
+        return {
+          id: `seed-${i}-${raw.toString(16)}`,
+          glyph: glyphs[raw % glyphs.length],
+          label: labels[(raw >>> 3) % labels.length],
+          shell: ((raw >>> 5) % SHEETS) + 1,
+          vitality: 1 + ((raw >>> 10) % 9),
+          echo: (raw >>> 13) % 64
+        };
+      });
+    }
+
+    function plantSeed(seed) {
+      const slot = state.garden.findIndex(plot => !plot);
+      const target = slot >= 0 ? slot : (state.honks + state.toodles) % state.garden.length;
+      state.garden[target] = {
+        ...seed,
+        plantedAt: state.honks + state.toodles
+      };
+      render();
+    }
+
+    function randomSeed() {
+      if (!state.seeds.length) return null;
+      return state.seeds[(state.honks + state.toodles + state.recursion) % state.seeds.length];
+    }
+
+    function updateGardenStages() {
+      const stages = ["SEED", "SPROUT", "BUD", "EGG"];
+      return state.garden.map(plot => {
+        if (!plot) return null;
+        const age = Math.max(0, state.honks + state.toodles - plot.plantedAt);
+        return {
+          ...plot,
+          stage: stages[Math.min(stages.length - 1, Math.floor(age / 2))]
+        };
+      });
+    }
+
+    function pondRipples() {
+      const left = "'".repeat(Math.min(6, 1 + (state.honks % 6)));
+      const right = ",".repeat(Math.min(6, 1 + (state.toodles % 6)));
+      return `${left} O ${right}`;
+    }
+
+    function computeQuidMix() {
+      const focus = state.cube.voxels.filter(v => Math.abs(v.z - state.cur) <= 2);
+      if (!focus.length) return { ratio: 0, top: "quiet" };
+      const occupied = new Set(focus.map(v => `${v.z}:${v.y}:${v.x}`));
+      const counts = {};
+      let samples = 0;
+
+      focus.forEach(v => {
+        [
+          [0, -1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1],
+          [-1, 0, 0], [1, 0, 0]
+        ].forEach(([dz, dy, dx]) => {
+          const z = v.z + dz;
+          const y = v.y + dy;
+          const x = v.x + dx;
+          const key = `${z}:${y}:${x}`;
+          if (z < 0 || z >= SHEETS || y < 0 || y >= ROWS || x < 0 || x >= COLS) return;
+          if (occupied.has(key)) return;
+          const ch = state.cube.sheets[z][y][x];
+          if (DENSITY.includes(ch) && ch !== " ") {
+            counts[ch] = (counts[ch] || 0) + 1;
+            samples++;
+          }
+        });
+      });
+
+      const top = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([ch, count]) => `${ch}${count}`)
+        .join(" ");
+
+      return {
+        ratio: samples / Math.max(1, focus.length),
+        top: top || "quiet"
+      };
+    }
+
+    function renderSlice() {
+      const sheet = state.cube.sheets[state.cur];
+      const lines = [];
+      for (let y = 0; y < ROWS; y++) {
+        const row = sheet[y].join("");
+        lines.push(`${String(y + 1).padStart(2, "0")} ${row}`);
+      }
+      els.sliceView.textContent = lines.join("\n");
+    }
+
+    function renderStrip() {
+      els.sheetStrip.innerHTML = "";
+      for (let i = 0; i < SHEETS; i++) {
+        const pill = document.createElement("span");
+        pill.className = "sheet-pill";
+        if (CENTER_ARC.includes(i)) pill.classList.add("center");
+        if (state.cur === i) pill.classList.add("active");
+        pill.textContent = String(i + 1);
+        els.sheetStrip.appendChild(pill);
+      }
+    }
+
+    function renderSeeds() {
+      els.seedList.innerHTML = "";
+      state.seeds.forEach(seed => {
+        const row = document.createElement("div");
+        row.className = "seed";
+        row.innerHTML = `
+          <div>
+            <div>${seed.glyph} ${seed.label}</div>
+            <div class="meta">S${seed.shell} · V${seed.vitality} · E${seed.echo}</div>
+          </div>
+        `;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = "Plant";
+        btn.addEventListener("click", () => plantSeed(seed));
+        row.appendChild(btn);
+        els.seedList.appendChild(row);
+      });
+    }
+
+    function renderGarden() {
+      const staged = updateGardenStages();
+      els.gardenGrid.innerHTML = "";
+      staged.forEach(plot => {
+        const cell = document.createElement("div");
+        cell.className = "plot";
+        if (!plot) {
+          cell.classList.add("empty");
+          cell.innerHTML = `<div>empty plot</div><div class="meta">waiting for a seed</div>`;
+        } else {
+          cell.innerHTML = `
+            <div>${plot.glyph} ${plot.label}</div>
+            <div class="meta">stage: ${plot.stage}</div>
+            <div class="meta">shell: S${plot.shell}</div>
+          `;
+        }
+        els.gardenGrid.appendChild(cell);
+      });
+    }
+
+    function renderCanvas(quid) {
+      const canvas = els.cubeCanvas;
+      const ctx = canvas.getContext("2d");
+      const { width, height } = canvas;
+      ctx.clearRect(0, 0, width, height);
+
+      const sky = ctx.createLinearGradient(0, 0, 0, height);
+      sky.addColorStop(0, "#111827");
+      sky.addColorStop(0.55, "#0b1320");
+      sky.addColorStop(1, "#090c14");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, width, height);
+
+      const bounds = state.cube.bounds;
+      const midX = (bounds.minX + bounds.maxX) / 2;
+      const midY = (bounds.minY + bounds.maxY) / 2;
+      const midZ = (bounds.minZ + bounds.maxZ) / 2;
+      const spanX = Math.max(6, bounds.maxX - bounds.minX);
+      const spanY = Math.max(4, bounds.maxY - bounds.minY);
+      const spanZ = Math.max(10, bounds.maxZ - bounds.minZ);
+      const globeX = width / 2;
+      const globeY = height * 0.48;
+      const globeRX = width * 0.31;
+      const globeRY = height * 0.36;
+      const snowPhase = state.honks * 0.8 + state.toodles * 0.55 + state.cur * 0.12;
+
+      const project = (x, y, z) => {
+        const nx = (x - midX) / spanX;
+        const ny = (y - midY) / spanY;
+        const nz = (z - midZ) / spanZ;
+        return {
+          x: globeX + (nx - nz) * 118,
+          y: globeY + (nx + nz) * 31 + ny * 92
+        };
+      };
+
+      const ringAlpha = Math.min(0.5, 0.12 + quid.ratio * 0.04);
+      const eggPulse = 0.55 + 0.45 * Math.sin((state.honks + state.recursion + state.cur) * 0.18);
+
+      const globeFill = ctx.createRadialGradient(globeX, globeY - globeRY * 0.6, globeRX * 0.1, globeX, globeY, globeRX);
+      globeFill.addColorStop(0, "rgba(190, 226, 255, 0.16)");
+      globeFill.addColorStop(0.45, "rgba(70, 128, 208, 0.08)");
+      globeFill.addColorStop(1, "rgba(8, 12, 20, 0.03)");
+      ctx.beginPath();
+      ctx.ellipse(globeX, globeY, globeRX, globeRY, 0, 0, Math.PI * 2);
+      ctx.fillStyle = globeFill;
+      ctx.fill();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(globeX, globeY, globeRX, globeRY, 0, 0, Math.PI * 2);
+      ctx.clip();
+
+      const interiorGlow = ctx.createRadialGradient(globeX, globeY + globeRY * 0.15, globeRX * 0.12, globeX, globeY + globeRY * 0.18, globeRX * 1.2);
+      interiorGlow.addColorStop(0, "rgba(255, 227, 166, 0.16)");
+      interiorGlow.addColorStop(0.55, "rgba(89, 150, 255, 0.10)");
+      interiorGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = interiorGlow;
+      ctx.fillRect(globeX - globeRX - 10, globeY - globeRY - 10, globeRX * 2 + 20, globeRY * 2 + 20);
+
+      for (let i = 0; i < 26; i++) {
+        const t = i * 17.13 + snowPhase;
+        const px = globeX + Math.sin(t * 0.31) * globeRX * (0.16 + (i % 7) * 0.11);
+        const py = globeY - globeRY * 0.62 + ((t * 9.7) % (globeRY * 1.35));
+        const size = 0.8 + (i % 3) * 0.55;
+        ctx.beginPath();
+        ctx.arc(px, py, size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${0.16 + (i % 5) * 0.045})`;
+        ctx.fill();
+      }
+
+      ctx.strokeStyle = `rgba(110, 196, 255, ${ringAlpha})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.ellipse(globeX, globeY + height * 0.035, globeRX * 0.86, globeRY * 0.23, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(globeX, globeY + height * 0.035, globeRX * 0.52, globeRY * 0.6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(globeX, globeY + height * 0.035, globeRX * 0.74, globeRY * 0.18, Math.PI / 4, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(255, 221, 145, ${0.18 + eggPulse * 0.2})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(globeX, globeY + height * 0.01, globeRX * 1.02, globeRY * 0.9, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const corners = [
+        [bounds.minX, bounds.minY, bounds.minZ],
+        [bounds.maxX, bounds.minY, bounds.minZ],
+        [bounds.maxX, bounds.maxY, bounds.minZ],
+        [bounds.minX, bounds.maxY, bounds.minZ],
+        [bounds.minX, bounds.minY, bounds.maxZ],
+        [bounds.maxX, bounds.minY, bounds.maxZ],
+        [bounds.maxX, bounds.maxY, bounds.maxZ],
+        [bounds.minX, bounds.maxY, bounds.maxZ]
+      ].map(([x, y, z]) => project(x, y, z));
+
+      const edges = [
+        [0, 1], [1, 2], [2, 3], [3, 0],
+        [4, 5], [5, 6], [6, 7], [7, 4],
+        [0, 4], [1, 5], [2, 6], [3, 7]
+      ];
+      ctx.strokeStyle = "rgba(255, 209, 102, 0.18)";
+      ctx.lineWidth = 1;
+      edges.forEach(([a, b]) => {
+        ctx.beginPath();
+        ctx.moveTo(corners[a].x, corners[a].y);
+        ctx.lineTo(corners[b].x, corners[b].y);
+        ctx.stroke();
+      });
+
+      const sorted = [...state.cube.voxels].sort((a, b) =>
+        (a.y + a.z * 0.35 + a.x * 0.1) - (b.y + b.z * 0.35 + b.x * 0.1)
+      );
+      sorted.forEach(voxel => {
+        const pt = project(voxel.x, voxel.y, voxel.z);
+        const isActive = Math.abs(voxel.z - state.cur) <= 1;
+        const isCenter = CENTER_ARC.includes(voxel.z);
+        const size = isActive ? 4 : isCenter ? 3.2 : 2.4;
+        ctx.fillStyle = isActive
+          ? "#ffd166"
+          : isCenter
+            ? "rgba(255, 191, 92, 0.78)"
+            : "rgba(146, 176, 235, 0.46)";
+        ctx.fillRect(pt.x, pt.y, size, size);
+      });
+
+      const driftY = globeY + globeRY * 0.58;
+      const driftGlow = ctx.createLinearGradient(globeX - globeRX * 0.7, driftY, globeX + globeRX * 0.7, driftY);
+      driftGlow.addColorStop(0, "rgba(86, 147, 219, 0)");
+      driftGlow.addColorStop(0.5, `rgba(86, 147, 219, ${0.12 + quid.ratio * 0.02})`);
+      driftGlow.addColorStop(1, "rgba(86, 147, 219, 0)");
+      ctx.fillStyle = driftGlow;
+      ctx.fillRect(globeX - globeRX * 0.7, driftY, globeRX * 1.4, globeRY * 0.16);
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.ellipse(globeX, globeY, globeRX, globeRY, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.ellipse(globeX - globeRX * 0.32, globeY - globeRY * 0.34, globeRX * 0.26, globeRY * 0.16, -0.6, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      const baseY = globeY + globeRY * 0.95;
+      const baseGrad = ctx.createLinearGradient(0, baseY - 12, 0, height);
+      baseGrad.addColorStop(0, "#3c2615");
+      baseGrad.addColorStop(1, "#1b120b");
+      ctx.fillStyle = baseGrad;
+      ctx.fillRect(globeX - 74, baseY, 148, 26);
+      ctx.fillStyle = "#57351d";
+      ctx.fillRect(globeX - 52, baseY - 10, 104, 16);
+      ctx.fillStyle = "rgba(255, 224, 170, 0.6)";
+      ctx.font = "11px Courier New, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("GOOSE GLOBE", globeX, baseY + 16);
+      ctx.textAlign = "left";
+    }
+
+    function renderThread(quid) {
+      const canvas = els.threadCanvas;
+      const ctx = canvas.getContext("2d");
+      const { width, height } = canvas;
+      const padX = 28;
+      const midY = height * 0.53;
+      ctx.clearRect(0, 0, width, height);
+
+      const bg = ctx.createLinearGradient(0, 0, 0, height);
+      bg.addColorStop(0, "#111827");
+      bg.addColorStop(1, "#090c14");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = "rgba(255, 209, 102, 0.08)";
+      CENTER_ARC.forEach((z) => {
+        const x = padX + (z / (SHEETS - 1)) * (width - padX * 2);
+        ctx.fillRect(x - 5, 16, 10, height - 52);
+      });
+
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padX, midY);
+      ctx.lineTo(width - padX, midY);
+      ctx.stroke();
+
+      const slices = Array.from({ length: SHEETS }, (_, z) => {
+        const voxels = state.cube.voxels.filter((v) => v.z === z);
+        if (!voxels.length) {
+          return { z, cx: COLS / 2, cy: ROWS / 2, count: 0, width: 0 };
+        }
+        const sum = voxels.reduce((acc, voxel) => ({
+          x: acc.x + voxel.x,
+          y: acc.y + voxel.y
+        }), { x: 0, y: 0 });
+        const xs = voxels.map((v) => v.x);
+        return {
+          z,
+          cx: sum.x / voxels.length,
+          cy: sum.y / voxels.length,
+          count: voxels.length,
+          width: Math.max(...xs) - Math.min(...xs) + 1
+        };
+      });
+
+      const points = slices.map((slice) => {
+        const x = padX + (slice.z / (SHEETS - 1)) * (width - padX * 2);
+        const nx = (slice.cx - COLS / 2) / Math.max(1, COLS / 2);
+        const ny = (slice.cy - ROWS / 2) / Math.max(1, ROWS / 2);
+        const wave = Math.sin(slice.z * 0.45 + state.honks * 0.33 + state.toodles * 0.22) * 11;
+        const y = midY + nx * 28 + ny * 36 + wave;
+        return { x, y, slice };
+      });
+
+      const glow = ctx.createLinearGradient(0, 0, width, 0);
+      glow.addColorStop(0, "rgba(120, 176, 255, 0.25)");
+      glow.addColorStop(0.5, `rgba(255, 209, 102, ${0.3 + quid.ratio * 0.04})`);
+      glow.addColorStop(1, "rgba(120, 176, 255, 0.25)");
+      ctx.strokeStyle = glow;
+      ctx.lineWidth = 5;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        if (index === 0) ctx.moveTo(point.x, point.y);
+        else ctx.lineTo(point.x, point.y);
+      });
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(255, 244, 214, 0.82)";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        if (index === 0) ctx.moveTo(point.x, point.y);
+        else ctx.lineTo(point.x, point.y);
+      });
+      ctx.stroke();
+
+      points.forEach((point) => {
+        const active = point.slice.z === state.cur;
+        const center = CENTER_ARC.includes(point.slice.z);
+        const radius = active ? 5.8 : center ? 4.4 : 3;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = active
+          ? "#ffd166"
+          : center
+            ? "rgba(255, 191, 92, 0.78)"
+            : "rgba(151, 178, 232, 0.62)";
+        ctx.fill();
+      });
+
+      const activePoint = points[state.cur];
+      ctx.strokeStyle = "rgba(255, 209, 102, 0.32)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(activePoint.x, 18);
+      ctx.lineTo(activePoint.x, height - 30);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(255,255,255,0.42)";
+      ctx.font = "10px Courier New, monospace";
+      for (let z = 0; z < SHEETS; z += 8) {
+        const x = padX + (z / (SHEETS - 1)) * (width - padX * 2);
+        ctx.fillText(String(z + 1), x - 6, height - 10);
+      }
+
+      ctx.fillStyle = "rgba(255, 234, 196, 0.75)";
+      ctx.font = "11px Courier New, monospace";
+      ctx.fillText(`S${state.cur + 1}`, activePoint.x + 8, activePoint.y - 10);
+    }
+
+    function renderViewState() {
+      els.viewButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.view === state.view);
+      });
+      Object.entries(els.viewPanels).forEach(([view, panel]) => {
+        panel.classList.toggle("active", view === state.view);
+      });
+    }
+
+    function render() {
+      deriveSeeds();
+      const quid = computeQuidMix();
+      renderSlice();
+      renderStrip();
+      renderSeeds();
+      renderGarden();
+      renderCanvas(quid);
+      renderThread(quid);
+      renderViewState();
+
+      const activeLabel = CENTER_ARC.includes(state.cur) ? "center arc" : "outer stack";
+      const planted = state.garden.filter(Boolean).length;
+      els.sliceMeta.textContent = `Sheet ${state.cur + 1} of ${SHEETS} · ${activeLabel}`;
+      els.statsMeta.textContent = `honks ${state.honks} · seeds ${state.seeds.length} · garden ${planted}`;
+      els.sheetReadout.textContent = `center arc: S31-S33 · active S${state.cur + 1}`;
+      els.quidReadout.textContent = `quid mix: ${quid.top}`;
+      els.pondMeta.textContent = `pond ${state.pond} · recursion ${state.recursion}`;
+      els.pondRipple.textContent = pondRipples();
+      els.pondStateText.textContent = `State: ${state.pond}`;
+      els.eggStateText.textContent = planted >= 4 ? "Egg: recursive and seeding" : state.honks >= 3 ? "Egg: warm and honking" : "Egg: warm and waiting";
+      els.cubeNote.textContent = `Goose voxels: ${state.cube.voxels.length} · snowglobe egg with toroid weather and drifting quids.`;
+      els.sheetSlider.value = String(state.cur);
+      els.playBtn.textContent = state.playing ? "Pause" : "Play";
+    }
+
+    function honk() {
+      state.honks += 1;
+      state.recursion += 1;
+      state.pond = state.pond === "still" ? "ringing" : state.pond === "ringing" ? "lapping" : "ringing";
+      stirDensity(4, 10 + (state.honks % 5));
+      render();
+    }
+
+    function toodle() {
+      state.toodles += 1;
+      state.cur = (state.cur + 1) % SHEETS;
+      state.pond = state.pond === "still" ? "lapping" : state.pond === "lapping" ? "drifting" : "still";
+      stirDensity(3, 8);
+      render();
+    }
+
+    function newGoose() {
+      const seed = 42 + state.recursion + state.honks + state.toodles;
+      state.cube = buildCube(seed);
+      state.garden = Array.from({ length: 6 }, () => null);
+      state.seeds = [];
+      state.cur = CENTER_Z;
+      state.pond = "still";
+      state.recursion += 1;
+      render();
+    }
+
+    function plantRandomSeed() {
+      const seed = randomSeed();
+      if (seed) {
+        plantSeed(seed);
+      }
+    }
+
+    function setSheet(value) {
+      state.cur = Math.max(0, Math.min(SHEETS - 1, value));
+      render();
+    }
+
+    function setView(view) {
+      state.view = view;
+      render();
+    }
+
+    function togglePlay() {
+      state.playing = !state.playing;
+      if (state.playing) {
+        state.playHandle = window.setInterval(() => {
+          state.cur = (state.cur + 1) % SHEETS;
+          render();
+        }, 160);
+      } else if (state.playHandle) {
+        window.clearInterval(state.playHandle);
+        state.playHandle = null;
+      }
+      render();
+    }
+
+    function bindEvents() {
+      document.getElementById("honkBtn").addEventListener("click", honk);
+      document.getElementById("toodleBtn").addEventListener("click", toodle);
+      document.getElementById("plantBtn").addEventListener("click", plantRandomSeed);
+      document.getElementById("newGooseBtn").addEventListener("click", newGoose);
+      document.getElementById("prevSheetBtn").addEventListener("click", () => setSheet(state.cur - 1));
+      document.getElementById("nextSheetBtn").addEventListener("click", () => setSheet(state.cur + 1));
+      document.getElementById("playBtn").addEventListener("click", togglePlay);
+      els.sheetSlider.addEventListener("input", (event) => setSheet(Number(event.target.value)));
+      els.viewButtons.forEach((button) => {
+        button.addEventListener("click", () => setView(button.dataset.view));
+      });
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowLeft") setSheet(state.cur - 1);
+        if (event.key === "ArrowRight") setSheet(state.cur + 1);
+        if (event.key.toLowerCase() === "h") honk();
+        if (event.key.toLowerCase() === "t") toodle();
+        if (event.key === "1") setView("sheet");
+        if (event.key === "2") setView("globe");
+        if (event.key === "3") setView("thread");
+        if (event.key === "4") setView("world");
+      });
+    }
+
+    function init() {
+      state.cube = buildCube(42);
+      bindEvents();
+      render();
+    }
+
+    init();
+  </script>
+</body>
+</html>

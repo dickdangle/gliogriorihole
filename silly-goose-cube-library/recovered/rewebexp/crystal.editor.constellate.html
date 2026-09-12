@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦑 SQDVM · deterministic kernel</title>
+    <style>
+        body {
+            margin: 0;
+            background: #08000f;
+            color: #ccc;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #canvas {
+            flex: 1;
+            background: #08000f;
+            cursor: grab;
+        }
+        #hud {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(10,0,20,0.8);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #4a2a6a;
+            backdrop-filter: blur(4px);
+            font-size: 12px;
+            z-index: 10;
+            pointer-events: none;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 6px;
+            background: rgba(10,0,20,0.9);
+            padding: 8px 14px;
+            border-radius: 40px;
+            border: 1px solid #5a3a7a;
+            backdrop-filter: blur(4px);
+            z-index: 20;
+            flex-wrap: wrap;
+            justify-content: center;
+            pointer-events: all;
+            max-width: 90%;
+        }
+        input {
+            background: #0a0a18;
+            border: none;
+            outline: none;
+            padding: 8px 16px;
+            width: 240px;
+            border-radius: 40px;
+            color: #eee;
+            font-size: 14px;
+        }
+        button {
+            background: #6d28d9;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            transition: background 0.1s;
+            white-space: nowrap;
+        }
+        button:hover {
+            background: #8b5cf6;
+        }
+        button.secondary {
+            background: #2a1a3a;
+        }
+        #telemetry {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(20,0,30,0.8);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #a78bfa;
+            font-size: 11px;
+            color: #a78bfa;
+            backdrop-filter: blur(4px);
+            z-index: 10;
+            max-width: 300px;
+            white-space: pre-wrap;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="hud">
+        <div>🦑 SQDVM · deterministic kernel</div>
+        <div>seed: <span id="seed-display">deadbeef</span> · entropy: <span id="entropy-display">deadbeef</span> · tick: <span id="tick-display">0</span></div>
+        <div>nodes: <span id="nodes-display">0</span> · squishes: <span id="squishes-display">0</span></div>
+    </div>
+    <div id="telemetry"></div>
+    <div id="controls">
+        <input id="input" placeholder="type a word or /command..." autocomplete="off">
+        <button id="inject">INJECT</button>
+        <button id="field-step" class="secondary">FIELD_STEP</button>
+        <button id="create-squish" class="secondary">➕ SQUISH</button>
+        <button id="clone" class="secondary">🌀 CLONE</button>
+        <button id="telemetry-btn" class="secondary">📡 TELE</button>
+        <button id="export" class="secondary">📤 EXPORT</button>
+        <button id="import" class="secondary">📥 IMPORT</button>
+    </div>
+
+    <script>
+        // ====================== DETERMINISTIC KERNEL ======================
+        const RECENT_SIZE = 5;
+        const GRAVITY_CONST = 0.02;      // base gravitational constant
+        const TIME_STEP = 0.1;            // integration step
+        const DAMPING = 0.95;              // velocity damping per field step
+        const POSITION_SCALE = 8;           // scale for initial positions
+
+        class Kernel {
+            constructor(seed = 0xdeadbeef) {
+                this.SEED = seed >>> 0;
+                this.ENTROPY = this.SEED;
+                this.TICK = 0;
+                this.NODES = new Map();          // token -> { mass, pos, vel, entropy_weight }
+                this.EDGES = new Map();           // `${a}|${b}` -> weight (symmetric)
+                this.SQUISHES = [];                // list of squish objects { name, entropy_bias }
+                this.RECENT = [];                   // array of tokens (size ≤ RECENT_SIZE)
+            }
+
+            // 32‑bit PRNG (Xorshift‑like)
+            rand() {
+                let x = this.ENTROPY;
+                x ^= x << 13;
+                x ^= x >> 17;
+                x ^= x << 5;
+                this.ENTROPY = x >>> 0;
+                return this.ENTROPY;
+            }
+
+            // simple 32‑bit hash (djb2) of a string
+            hashString(s) {
+                let h = 5381;
+                for (let i = 0; i < s.length; i++) {
+                    h = ((h << 5) - h) + s.charCodeAt(i);
+                    h |= 0; // force 32-bit
+                }
+                return h >>> 0;
+            }
+
+            // deterministic 3D position from token and current entropy
+            hash3D(token) {
+                const h = (this.hashString(token) ^ this.ENTROPY) >>> 0;
+                const x = Math.sin(h * 0.01) * POSITION_SCALE;
+                const y = Math.cos(h * 0.012) * POSITION_SCALE;
+                const z = Math.sin(h * 0.013 + 1) * POSITION_SCALE;
+                return [x, y, z];
+            }
+
+            // weight of a squish for a given token (deterministic)
+            squishWeight(squish, token) {
+                const h = this.hashString(squish.name + token) & 0xffff;
+                return 1 + (h / 65535) * 2;   // range 1..3
+            }
+
+            // bias overlap between two tokens (product over squishes)
+            biasOverlap(a, b) {
+                let total = 1.0;
+                for (let s of this.SQUISHES) {
+                    const wa = this.squishWeight(s, a);
+                    const wb = this.squishWeight(s, b);
+                    total += wa * wb;
+                }
+                return total;
+            }
+
+            // inject a token (called from step_token)
+            stepToken(token) {
+                this.TICK++;
+                this.rand();  // advance entropy
+
+                if (!this.NODES.has(token)) {
+                    // create new sphere
+                    const [x,y,z] = this.hash3D(token);
+                    this.NODES.set(token, {
+                        mass: 1,
+                        pos: [x, y, z],
+                        vel: [0, 0, 0],
+                        entropy_weight: 1
+                    });
+                } else {
+                    const node = this.NODES.get(token);
+                    node.mass += 1;
+                    node.entropy_weight += (this.rand() % 3) + 1;
+                }
+
+                // co‑occurrence with recent tokens
+                for (let r of this.RECENT) {
+                    if (r === token) continue;
+                    const key1 = token + '|' + r;
+                    const key2 = r + '|' + token;
+                    const cur = this.EDGES.get(key1) || 0;
+                    this.EDGES.set(key1, cur + 1);
+                    this.EDGES.set(key2, cur + 1);
+                }
+
+                // update recent window
+                this.RECENT.push(token);
+                if (this.RECENT.length > RECENT_SIZE) this.RECENT.shift();
+            }
+
+            // inject raw text (split into tokens by whitespace/punctuation)
+            inject(text) {
+                const tokens = text.toLowerCase().split(/[^\w]+/).filter(t => t.length > 0);
+                for (let t of tokens) {
+                    this.stepToken(t);
+                }
+            }
+
+            // gravity between two nodes (symmetric)
+            gravity(a, b) {
+                const nodeA = this.NODES.get(a);
+                const nodeB = this.NODES.get(b);
+                const m1 = nodeA.mass;
+                const m2 = nodeB.mass;
+                const dx = nodeB.pos[0] - nodeA.pos[0];
+                const dy = nodeB.pos[1] - nodeA.pos[1];
+                const dz = nodeB.pos[2] - nodeA.pos[2];
+                const dist2 = dx*dx + dy*dy + dz*dz + 1e-4;
+                const dist = Math.sqrt(dist2);
+                const base = (m1 * m2) / dist2;
+                const bias = this.biasOverlap(a, b);
+                const force = GRAVITY_CONST * base * bias;
+                // unit vector from A to B
+                const fx = (dx / dist) * force;
+                const fy = (dy / dist) * force;
+                const fz = (dz / dist) * force;
+                return { fx, fy, fz };
+            }
+
+            // perform one field step (update velocities and positions)
+            fieldStep() {
+                // collect tokens list
+                const tokens = Array.from(this.NODES.keys());
+                // accumulate forces
+                const forces = new Map();
+                for (let a of tokens) {
+                    forces.set(a, [0,0,0]);
+                }
+                for (let i = 0; i < tokens.length; i++) {
+                    for (let j = i+1; j < tokens.length; j++) {
+                        const a = tokens[i];
+                        const b = tokens[j];
+                        const { fx, fy, fz } = this.gravity(a, b);
+                        forces.get(a)[0] += fx;
+                        forces.get(a)[1] += fy;
+                        forces.get(a)[2] += fz;
+                        forces.get(b)[0] -= fx;
+                        forces.get(b)[1] -= fy;
+                        forces.get(b)[2] -= fz;
+                    }
+                }
+                // apply forces to velocities and integrate positions
+                for (let [token, node] of this.NODES) {
+                    const f = forces.get(token);
+                    node.vel[0] = (node.vel[0] + f[0]) * DAMPING;
+                    node.vel[1] = (node.vel[1] + f[1]) * DAMPING;
+                    node.vel[2] = (node.vel[2] + f[2]) * DAMPING;
+                    node.pos[0] += node.vel[0] * TIME_STEP;
+                    node.pos[1] += node.vel[1] * TIME_STEP;
+                    node.pos[2] += node.vel[2] * TIME_STEP;
+                    // soft wrap to keep in view (optional)
+                    const bound = 20;
+                    for (let k = 0; k < 3; k++) {
+                        if (node.pos[k] > bound) node.pos[k] = bound - 1;
+                        if (node.pos[k] < -bound) node.pos[k] = -bound + 1;
+                    }
+                }
+            }
+
+            // create a new squish
+            createSquish(name) {
+                const entropy_bias = this.rand() % 100;
+                this.SQUISHES.push({ name, entropy_bias });
+                // apply entropy bias to kernel entropy (per spec)
+                this.ENTROPY = (this.ENTROPY + entropy_bias) >>> 0;
+            }
+
+            // deterministic clone
+            clone() {
+                const child = new Kernel();
+                child.SEED = (this.ENTROPY ^ (this.SEED << 5)) >>> 0;
+                child.ENTROPY = child.SEED;
+                child.TICK = 0;
+                // deep copy nodes
+                child.NODES = new Map();
+                for (let [k, v] of this.NODES) {
+                    child.NODES.set(k, {
+                        mass: v.mass,
+                        pos: v.pos.slice(),
+                        vel: v.vel.slice(),
+                        entropy_weight: v.entropy_weight
+                    });
+                }
+                // edges are simple map of strings, copy
+                child.EDGES = new Map(this.EDGES);
+                // squishes are objects, copy
+                child.SQUISHES = this.SQUISHES.map(s => ({ ...s }));
+                child.RECENT = this.RECENT.slice();
+                return child;
+            }
+
+            // telemetry between this (root) and another kernel
+            telemetry(other) {
+                const sumMass = (map) => {
+                    let s = 0;
+                    for (let node of map.values()) s += node.mass;
+                    return s;
+                };
+                return {
+                    delta_nodes: other.NODES.size - this.NODES.size,
+                    delta_entropy: (other.ENTROPY - this.ENTROPY) >>> 0,
+                    delta_mass: sumMass(other.NODES) - sumMass(this.NODES)
+                };
+            }
+
+            // export full state as base64 JSON
+            exportState() {
+                const obj = {
+                    seed: this.SEED,
+                    entropy: this.ENTROPY,
+                    tick: this.TICK,
+                    nodes: Array.from(this.NODES.entries()).map(([k, v]) => [k, v]),
+                    edges: Array.from(this.EDGES.entries()),
+                    squishes: this.SQUISHES,
+                    recent: this.RECENT
+                };
+                const json = JSON.stringify(obj);
+                return btoa(json);
+            }
+
+            // import from base64 JSON
+            importState(b64) {
+                try {
+                    const json = atob(b64);
+                    const obj = JSON.parse(json);
+                    this.SEED = obj.seed >>> 0;
+                    this.ENTROPY = obj.entropy >>> 0;
+                    this.TICK = obj.tick;
+                    this.NODES = new Map(obj.nodes.map(([k, v]) => [k, v]));
+                    this.EDGES = new Map(obj.edges);
+                    this.SQUISHES = obj.squishes;
+                    this.RECENT = obj.recent;
+                } catch (e) {
+                    console.error('import failed', e);
+                }
+            }
+        }
+
+        // ====================== VISUALIZATION ======================
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let W, H;
+        function resize() {
+            W = canvas.width = window.innerWidth;
+            H = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // view quaternion and zoom
+        let viewQuat = { w: 1, x: 0, y: 0, z: 0 };
+        let zoom = 25;
+        let mouseDown = false, lastX, lastY;
+
+        function normalizeQuat(q) {
+            const n = Math.sqrt(q.w*q.w + q.x*q.x + q.y*q.y + q.z*q.z);
+            if (n > 0) { q.w /= n; q.x /= n; q.y /= n; q.z /= n; }
+        }
+        function multiplyQuat(a, b) {
+            return {
+                w: a.w*b.w - a.x*b.x - a.y*b.y - a.z*b.z,
+                x: a.w*b.x + a.x*b.w + a.y*b.z - a.z*b.y,
+                y: a.w*b.y - a.x*b.z + a.y*b.w + a.z*b.x,
+                z: a.w*b.z + a.x*b.y - a.y*b.x + a.z*b.w
+            };
+        }
+
+        canvas.addEventListener('mousedown', (e) => { mouseDown = true; lastX = e.clientX; lastY = e.clientY; });
+        canvas.addEventListener('mouseup', () => { mouseDown = false; });
+        canvas.addEventListener('mousemove', (e) => {
+            if (!mouseDown) return;
+            const dx = (e.clientX - lastX) * 0.005;
+            const dy = (e.clientY - lastY) * 0.005;
+            // rotate around Y then X
+            const qy = { w: Math.cos(dx/2), x: 0, y: Math.sin(dx/2), z: 0 };
+            const qx = { w: Math.cos(dy/2), x: Math.sin(dy/2), y: 0, z: 0 };
+            viewQuat = multiplyQuat(qx, multiplyQuat(qy, viewQuat));
+            normalizeQuat(viewQuat);
+            lastX = e.clientX; lastY = e.clientY;
+        });
+        canvas.addEventListener('wheel', (e) => {
+            zoom *= (1 + e.deltaY * 0.001);
+            zoom = Math.max(5, Math.min(100, zoom));
+        });
+
+        function rotateVector(v, q) {
+            // rotate 3D vector by quaternion
+            const u = [q.x, q.y, q.z];
+            const s = q.w;
+            const dot = v[0]*u[0] + v[1]*u[1] + v[2]*u[2];
+            const cross = [
+                u[1]*v[2] - u[2]*v[1],
+                u[2]*v[0] - u[0]*v[2],
+                u[0]*v[1] - u[1]*v[0]
+            ];
+            return [
+                v[0]*(2*s*s-1) + 2*u[0]*dot + 2*s*cross[0],
+                v[1]*(2*s*s-1) + 2*u[1]*dot + 2*s*cross[1],
+                v[2]*(2*s*s-1) + 2*u[2]*dot + 2*s*cross[2]
+            ];
+        }
+
+        function project(pos) {
+            const rotated = rotateVector(pos, viewQuat);
+            const scale = 200 / (200 + rotated[2] + 20);
+            return {
+                x: W/2 + rotated[0] * zoom * scale,
+                y: H/2 - rotated[1] * zoom * scale,
+                scale
+            };
+        }
+
+        // ====================== MAIN ======================
+        const kernel = new Kernel(0xdeadbeef);
+        let clones = [];
+
+        function updateHUD() {
+            document.getElementById('seed-display').textContent = kernel.SEED.toString(16).padStart(8,'0');
+            document.getElementById('entropy-display').textContent = kernel.ENTROPY.toString(16).padStart(8,'0');
+            document.getElementById('tick-display').textContent = kernel.TICK;
+            document.getElementById('nodes-display').textContent = kernel.NODES.size;
+            document.getElementById('squishes-display').textContent = kernel.SQUISHES.length;
+        }
+
+        function draw() {
+            ctx.clearRect(0,0,W,H);
+            ctx.fillStyle = '#08000f';
+            ctx.fillRect(0,0,W,H);
+
+            const tokens = Array.from(kernel.NODES.keys());
+
+            // draw edges
+            ctx.lineWidth = 1.2;
+            const drawnEdges = new Set();
+            for (let [key, weight] of kernel.EDGES) {
+                const [a,b] = key.split('|');
+                if (!kernel.NODES.has(a) || !kernel.NODES.has(b)) continue;
+                const pair = [a,b].sort().join('|');
+                if (drawnEdges.has(pair)) continue;
+                drawnEdges.add(pair);
+                const nodeA = kernel.NODES.get(a);
+                const nodeB = kernel.NODES.get(b);
+                const p1 = project(nodeA.pos);
+                const p2 = project(nodeB.pos);
+                const alpha = Math.min(weight * 0.1, 0.8);
+                ctx.strokeStyle = `rgba(167,139,250,${alpha})`;
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+            }
+
+            // draw nodes sorted by depth (roughly)
+            const nodes = Array.from(kernel.NODES.entries()).map(([token, node]) => ({ token, ...node }));
+            nodes.sort((a,b) => {
+                const pa = rotateVector(a.pos, viewQuat)[2];
+                const pb = rotateVector(b.pos, viewQuat)[2];
+                return pb - pa; // back to front
+            });
+
+            for (let node of nodes) {
+                const p = project(node.pos);
+                const r = (4 + Math.log(node.mass + 1) * 4) * p.scale;
+                const color = `hsl(${(kernel.hashString(node.token) % 360)}, 80%, 65%)`;
+
+                // glow
+                const grad = ctx.createRadialGradient(p.x, p.y, r*0.5, p.x, p.y, r*3);
+                grad.addColorStop(0, color);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath(); ctx.arc(p.x, p.y, r*3, 0, Math.PI*2); ctx.fill();
+
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2); ctx.fill();
+
+                if (p.scale > 0.2) {
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '9px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(node.mass > 1 ? node.mass : '', p.x, p.y + 4);
+                }
+            }
+
+            updateHUD();
+            requestAnimationFrame(draw);
+        }
+        draw();
+
+        // ====================== UI ======================
+        const input = document.getElementById('input');
+        const injectBtn = document.getElementById('inject');
+        const fieldStepBtn = document.getElementById('field-step');
+        const createSquishBtn = document.getElementById('create-squish');
+        const cloneBtn = document.getElementById('clone');
+        const telemetryBtn = document.getElementById('telemetry-btn');
+        const exportBtn = document.getElementById('export');
+        const importBtn = document.getElementById('import');
+        const telemetryDiv = document.getElementById('telemetry');
+
+        function handleCommand(line) {
+            line = line.trim();
+            if (!line) return;
+            if (line.startsWith('/')) {
+                const parts = line.slice(1).split(/\s+/);
+                const cmd = parts[0].toLowerCase();
+                const args = parts.slice(1);
+                switch (cmd) {
+                    case 'inject':
+                        kernel.inject(args.join(' '));
+                        break;
+                    case 'field_step':
+                        kernel.fieldStep();
+                        break;
+                    case 'create_squish':
+                        if (args.length) kernel.createSquish(args[0]);
+                        else kernel.createSquish('squish_' + kernel.TICK);
+                        break;
+                    case 'clone':
+                        clones.push(kernel.clone());
+                        telemetryDiv.innerHTML = `Cloned #${clones.length}`;
+                        break;
+                    case 'telemetry':
+                        if (clones.length === 0) telemetryDiv.innerHTML = 'No clones yet.';
+                        else {
+                            const last = clones[clones.length-1];
+                            const t = kernel.telemetry(last);
+                            telemetryDiv.innerHTML = `Δnodes: ${t.delta_nodes}<br>Δentropy: ${t.delta_entropy}<br>Δmass: ${t.delta_mass}`;
+                        }
+                        break;
+                    case 'export':
+                        const b64 = kernel.exportState();
+                        navigator.clipboard?.writeText(b64).catch(() => {});
+                        telemetryDiv.innerHTML = 'Exported to clipboard (base64)';
+                        break;
+                    case 'import':
+                        const paste = prompt('Paste base64 glyph:');
+                        if (paste) {
+                            kernel.importState(paste);
+                            telemetryDiv.innerHTML = 'Imported.';
+                        }
+                        break;
+                    default:
+                        telemetryDiv.innerHTML = 'Unknown command';
+                }
+            } else {
+                kernel.inject(line);
+            }
+        }
+
+        injectBtn.addEventListener('click', () => {
+            handleCommand(input.value);
+            input.value = '';
+        });
+        fieldStepBtn.addEventListener('click', () => {
+            kernel.fieldStep();
+        });
+        createSquishBtn.addEventListener('click', () => {
+            kernel.createSquish('squish_' + kernel.TICK);
+        });
+        cloneBtn.addEventListener('click', () => {
+            clones.push(kernel.clone());
+            telemetryDiv.innerHTML = `Cloned #${clones.length}`;
+        });
+        telemetryBtn.addEventListener('click', () => {
+            if (clones.length === 0) telemetryDiv.innerHTML = 'No clones yet.';
+            else {
+                const last = clones[clones.length-1];
+                const t = kernel.telemetry(last);
+                telemetryDiv.innerHTML = `Δnodes: ${t.delta_nodes}<br>Δentropy: ${t.delta_entropy}<br>Δmass: ${t.delta_mass}`;
+            }
+        });
+        exportBtn.addEventListener('click', async () => {
+            const b64 = kernel.exportState();
+            try {
+                await navigator.clipboard.writeText(b64);
+                telemetryDiv.innerHTML = 'Exported to clipboard';
+            } catch {
+                prompt('Copy this base64:', b64);
+            }
+        });
+        importBtn.addEventListener('click', () => {
+            const paste = prompt('Paste base64 glyph:');
+            if (paste) {
+                kernel.importState(paste);
+                telemetryDiv.innerHTML = 'Imported.';
+            }
+        });
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleCommand(input.value);
+                input.value = '';
+            }
+        });
+
+        // bootstrap a few words
+        setTimeout(() => {
+            kernel.inject('void emerge pull drift');
+        }, 200);
+    </script>
+</body>
+</html>
